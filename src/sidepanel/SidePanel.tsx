@@ -231,26 +231,13 @@ export default function SidePanel() {
             {/* Header */}
             <div className="bg-[#141414] px-4 py-3 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <rect width="100" height="100" rx="22" fill="#FF6B35"/>
-                        <path d="M 75 65 Q 85 55 88 45 Q 90 38 88 32 Q 85 28 80 30 Q 75 33 72 40 Q 70 45 70 52 Q 68 58 70 65 Z" fill="#D2691E"/>
-                        <path d="M 77 62 Q 84 54 86 46 Q 87 40 85 35 Q 83 32 79 34 Q 75 37 73 43 Q 72 48 72 54 Q 71 59 72 62 Z" fill="#CD853F"/>
-                        <ellipse cx="50" cy="58" rx="20" ry="18" fill="#CD853F"/>
-                        <ellipse cx="38" cy="42" rx="14" ry="15" fill="#D2691E"/>
-                        <ellipse cx="35" cy="30" rx="4" ry="7" fill="#D2691E"/>
-                        <ellipse cx="35" cy="31" rx="2" ry="4" fill="#F4A460"/>
-                        <circle cx="32" cy="40" r="3" fill="#000"/>
-                        <circle cx="31" cy="39" r="1" fill="#FFF"/>
-                        <circle cx="26" cy="44" r="2" fill="#000"/>
-                        <ellipse cx="30" cy="48" rx="3" ry="2" fill="#F4A460" opacity="0.6"/>
-                        <ellipse cx="42" cy="65" rx="4" ry="10" fill="#CD853F" transform="rotate(20 42 65)"/>
-                        <ellipse cx="58" cy="70" rx="5" ry="8" fill="#D2691E"/>
-                        <ellipse cx="38" cy="60" rx="5" ry="6" fill="#8B6914"/>
-                        <ellipse cx="38" cy="56" rx="4" ry="2.5" fill="#654321"/>
-                        <path d="M 34 56 L 42 56 L 42 54 L 34 54 Z" fill="#654321"/>
-                        <path d="M 74 58 Q 78 52 80 46" stroke="#A0522D" strokeWidth="1.5" fill="none" opacity="0.5"/>
-                        <path d="M 76 62 Q 80 56 82 50" stroke="#A0522D" strokeWidth="1.5" fill="none" opacity="0.5"/>
-                    </svg>
+                    <img 
+                        src="/icons/logo.png" 
+                        alt="Logo" 
+                        width="28" 
+                        height="28" 
+                        className="rounded-lg"
+                    />
                     <h1 className="text-lg font-semibold text-white">
                         松鼠收藏夹
                     </h1>

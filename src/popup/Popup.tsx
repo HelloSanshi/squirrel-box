@@ -52,13 +52,16 @@ export default function Popup() {
         <div className="w-80 bg-[#0a0a0a] text-white overflow-hidden">
             {/* Header */}
             <div className="px-4 py-3 flex items-center gap-3">
-                <svg width="32" height="32" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect width="100" height="100" rx="22" fill="#14171A" />
-                    <path d="M62 15L32 48H48L38 85L70 48H56L62 15Z" fill="white" />
-                </svg>
+                <img 
+                    src="/icons/logo.png" 
+                    alt="Logo" 
+                    width="32" 
+                    height="32" 
+                    className="rounded-lg"
+                />
                 <div>
                     <h1 className="text-lg font-semibold text-white">
-                        Twitter AI Assistant
+                        松鼠收藏夹
                     </h1>
                     <p className="text-xs text-gray-400 mt-0.5">智能推文助手</p>
                 </div>
