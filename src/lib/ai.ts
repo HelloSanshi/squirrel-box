@@ -57,13 +57,16 @@ async function imageUrlToBase64(imageUrl: string): Promise<string> {
 
 // 识别图片中的文字内容
 export async function recognizeImage(settings: Settings, imageUrl: string): Promise<string> {
-    if (!settings.apiKey || !settings.baseUrl) {
+    // 构建视觉 API 配置（优先使用单独配置，否则回退到主配置）
+    const visionApiKey = settings.visionApiKey || settings.apiKey;
+    const visionBaseUrl = settings.visionBaseUrl || settings.baseUrl;
+    const visionModel = settings.visionModel || settings.model || 'gpt-4o';
+
+    if (!visionApiKey || !visionBaseUrl) {
         throw new Error('API配置未完成，请前往设置页面配置');
     }
 
-    // 使用视觉模型（优先使用专门配置的视觉模型，否则回退到主模型）
-    const visionModel = settings.visionModel || settings.model || 'gpt-4o';
-    console.log('使用视觉模型:', visionModel);
+    console.log('使用视觉模型:', visionModel, '| API:', visionBaseUrl);
 
     const prompt = `请仔细分析这张图片，提取其中的所有文字内容。
 要求：
@@ -82,7 +85,15 @@ export async function recognizeImage(settings: Settings, imageUrl: string): Prom
         // 如果转换失败，尝试直接使用 URL
     }
 
-    const result = await callAI(settings, [
+    // 使用视觉配置构建临时 settings
+    const visionSettings: Settings = {
+        ...settings,
+        apiKey: visionApiKey,
+        baseUrl: visionBaseUrl,
+        model: visionModel,
+    };
+
+    const result = await callAI(visionSettings, [
         {
             role: 'user',
             content: [
@@ -90,7 +101,7 @@ export async function recognizeImage(settings: Settings, imageUrl: string): Prom
                 { type: 'image_url', image_url: { url: imageData } }
             ]
         }
-    ], { model: visionModel });
+    ]);
 
     return result;
 }

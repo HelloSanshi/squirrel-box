@@ -27,7 +27,10 @@ export interface Settings {
     apiKey: string;
     baseUrl: string;
     model: string;
-    visionModel?: string; // 用于图片识别的模型（需支持 vision，如 gpt-4o）
+    // 视觉模型配置（用于图片识别，如果不配置则使用主配置）
+    visionModel?: string; // 视觉模型名称（需支持 vision，如 gpt-4o、qwen-vl-max）
+    visionApiKey?: string; // 视觉模型 API Key（不填则使用主 API Key）
+    visionBaseUrl?: string; // 视觉模型 Base URL（不填则使用主 Base URL）
     defaultLanguage: 'zh' | 'en' | 'ja' | 'ko';
     readingMode: boolean;
     customSummaryPrompt?: string; // 自定义摘要提示词

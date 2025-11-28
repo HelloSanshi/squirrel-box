@@ -201,26 +201,56 @@ export default function Options() {
                                 </div>
                             </div>
 
-                            {/* Vision Model - Only show when image recognition is enabled */}
+                            {/* Vision Model Config - Only show when image recognition is enabled */}
                             {settings.enableImageRecognition && (
-                                <div className="ml-7">
-                                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                                        视觉模型（可选）
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={settings.visionModel || ''}
-                                        onChange={(e) => setSettings({ ...settings, visionModel: e.target.value || undefined })}
-                                        placeholder={settings.model || 'gpt-4o'}
-                                        className="w-full px-3 py-2 bg-[#0a0a0a] border border-gray-800 rounded-lg text-white placeholder-gray-600 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
-                                    />
-                                    <p className="text-xs text-gray-500 mt-1.5">
-                                        用于图片识别的模型。留空则使用上方配置的主模型。
-                                        <br />
-                                        <span className="text-amber-500/80">阿里云：qwen-vl-max 或 qwen-vl-plus</span>
-                                        <br />
-                                        <span className="text-gray-600">OpenAI：gpt-4o | Anthropic：claude-sonnet-4-20250514 | Google：gemini-pro-vision</span>
+                                <div className="ml-7 space-y-4 p-4 bg-[#0a0a0a] rounded-lg border border-gray-800">
+                                    <p className="text-xs text-amber-500/80 -mt-1">
+                                        💡 以下配置为可选，留空则使用上方的主配置
                                     </p>
+                                    
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-300 mb-2">
+                                            视觉 API Key
+                                        </label>
+                                        <input
+                                            type="password"
+                                            value={settings.visionApiKey || ''}
+                                            onChange={(e) => setSettings({ ...settings, visionApiKey: e.target.value || undefined })}
+                                            placeholder="留空则使用主 API Key"
+                                            className="w-full px-3 py-2 bg-[#141414] border border-gray-700 rounded-lg text-white placeholder-gray-600 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-300 mb-2">
+                                            视觉 API Base URL
+                                        </label>
+                                        <input
+                                            type="url"
+                                            value={settings.visionBaseUrl || ''}
+                                            onChange={(e) => setSettings({ ...settings, visionBaseUrl: e.target.value || undefined })}
+                                            placeholder="留空则使用主 Base URL"
+                                            className="w-full px-3 py-2 bg-[#141414] border border-gray-700 rounded-lg text-white placeholder-gray-600 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-300 mb-2">
+                                            视觉模型名称
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={settings.visionModel || ''}
+                                            onChange={(e) => setSettings({ ...settings, visionModel: e.target.value || undefined })}
+                                            placeholder={settings.model || 'gpt-4o'}
+                                            className="w-full px-3 py-2 bg-[#141414] border border-gray-700 rounded-lg text-white placeholder-gray-600 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                                        />
+                                        <p className="text-xs text-gray-500 mt-1.5">
+                                            <span className="text-amber-500/80">阿里云：qwen-vl-max 或 qwen-vl-plus</span>
+                                            <br />
+                                            <span className="text-gray-600">OpenAI：gpt-4o | Anthropic：claude-sonnet-4-20250514 | Google：gemini-pro-vision</span>
+                                        </p>
+                                    </div>
                                 </div>
                             )}
 
