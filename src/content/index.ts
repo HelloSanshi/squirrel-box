@@ -502,7 +502,7 @@ async function publishTweetToTwitter(content: string) {
         if (composeButton) {
             composeButton.click();
             // Wait for compose box to appear
-            await new Promise(resolve => setTimeout(resolve, 800));
+            await new Promise(resolve => setTimeout(resolve, 1000));
         }
 
         // Find the compose text area - Twitter 使用 contenteditable div
@@ -512,92 +512,78 @@ async function publishTweetToTwitter(content: string) {
             throw new Error('无法找到发推文本框，请确保已打开 Twitter/X 页面');
         }
 
-        // 方法1: 使用剪贴板 API 写入内容，然后模拟粘贴
+        // 先复制到剪贴板（用于备选方案）
         try {
             await navigator.clipboard.writeText(content);
-            textArea.focus();
-            
-            // 模拟 Ctrl+V / Cmd+V 粘贴
-            const pasteEvent = new KeyboardEvent('keydown', {
-                key: 'v',
-                code: 'KeyV',
-                ctrlKey: true,
-                metaKey: true,
-                bubbles: true
-            });
-            textArea.dispatchEvent(pasteEvent);
-            
-            // 等待一下再检查
-            await new Promise(resolve => setTimeout(resolve, 100));
-            
-            // 如果键盘事件没生效，尝试 ClipboardEvent
-            if (!textArea.textContent || textArea.textContent.length < content.length / 2) {
-                const dataTransfer = new DataTransfer();
-                dataTransfer.setData('text/plain', content);
-                const clipboardEvent = new ClipboardEvent('paste', {
-                    clipboardData: dataTransfer,
-                    bubbles: true,
-                    cancelable: true
-                });
-                textArea.dispatchEvent(clipboardEvent);
-            }
-        } catch (clipboardError) {
-            console.log('剪贴板方法失败，尝试其他方法:', clipboardError);
+        } catch {
+            // 剪贴板可能没有权限，忽略
         }
 
-        // 方法2: 如果上面方法都失败，使用 InputEvent
+        // 聚焦并清空选区
+        textArea.focus();
         await new Promise(resolve => setTimeout(resolve, 100));
-        if (!textArea.textContent || textArea.textContent.length < content.length / 2) {
-            textArea.focus();
+
+        // 找到实际的可编辑元素
+        const editableDiv = textArea.querySelector('[contenteditable="true"]') || 
+                           textArea.closest('[contenteditable="true"]') || 
+                           textArea;
+
+        // 确保聚焦到可编辑元素
+        if (editableDiv instanceof HTMLElement) {
+            editableDiv.focus();
+        }
+
+        // 使用 document.execCommand 模拟用户输入（最兼容 React 状态）
+        // 先选中所有内容（如果有的话）
+        document.execCommand('selectAll', false);
+        
+        // 逐字符/逐段落输入以触发 React 状态更新
+        const lines = content.split('\n');
+        
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
             
-            // 使用 InputEvent 逐行插入
-            const lines = content.split('\n');
-            for (let i = 0; i < lines.length; i++) {
-                const line = lines[i];
-                if (line) {
-                    const inputEvent = new InputEvent('beforeinput', {
-                        inputType: 'insertText',
-                        data: line,
-                        bubbles: true,
-                        cancelable: true
-                    });
-                    textArea.dispatchEvent(inputEvent);
-                }
-                
-                // 插入换行（除了最后一行）
-                if (i < lines.length - 1) {
-                    const enterEvent = new InputEvent('beforeinput', {
-                        inputType: 'insertParagraph',
-                        bubbles: true,
-                        cancelable: true
-                    });
-                    textArea.dispatchEvent(enterEvent);
+            // 插入文本
+            if (line) {
+                document.execCommand('insertText', false, line);
+            }
+            
+            // 插入换行（除了最后一行）
+            if (i < lines.length - 1) {
+                // 使用 insertParagraph 或 insertLineBreak
+                const success = document.execCommand('insertParagraph', false);
+                if (!success) {
+                    document.execCommand('insertLineBreak', false);
                 }
             }
+            
+            // 给 React 一点时间处理
+            await new Promise(resolve => setTimeout(resolve, 10));
         }
 
-        // 方法3: 最后的备选方案 - 直接设置内容并触发 input 事件
-        await new Promise(resolve => setTimeout(resolve, 100));
-        if (!textArea.textContent || textArea.textContent.length < content.length / 2) {
-            // 找到编辑器内部的可编辑元素
-            const editor = textArea.querySelector('[contenteditable="true"]') || textArea;
-            
-            // 将内容转换为 HTML（保留换行）
-            const htmlContent = content
-                .split('\n')
-                .map(line => `<span data-text="true">${line || '<br>'}</span>`)
-                .join('<br>');
-            
-            editor.innerHTML = htmlContent;
-            
-            // 触发 input 事件让 Twitter 知道内容变化
-            editor.dispatchEvent(new Event('input', { bubbles: true }));
-        }
+        // 触发 input 和 change 事件确保 React 检测到变化
+        editableDiv.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+        editableDiv.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
 
-        showNotification('✓ 内容已填入，请检查后点击发布');
+        // 检查是否成功
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        const currentContent = editableDiv.textContent || '';
+        if (currentContent.length < content.length / 3) {
+            // 如果内容太少，提示用户手动粘贴
+            showNotification('📋 内容已复制！请按 Ctrl+V (Mac: Cmd+V) 粘贴');
+        } else {
+            showNotification('✓ 内容已填入，请检查后点击发布');
+        }
     } catch (error) {
         console.error('Failed to publish tweet:', error);
-        showNotification('✗ 发布失败：' + (error instanceof Error ? error.message : '未知错误'));
+        // 尝试复制到剪贴板作为备选
+        try {
+            await navigator.clipboard.writeText(content);
+            showNotification('📋 内容已复制！请按 Ctrl+V 粘贴到输入框');
+        } catch {
+            showNotification('✗ 发布失败：' + (error instanceof Error ? error.message : '未知错误'));
+        }
     }
 }
 
