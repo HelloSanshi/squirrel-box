@@ -532,10 +532,9 @@ export default function SidePanel() {
                                         key={tweet.id}
                                         className={cn(
                                             'group bg-white dark:bg-zinc-900 rounded-xl p-5 transition-all border shadow-sm hover:shadow-md relative',
+                                            'border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700',
                                             selectMode && 'cursor-pointer',
-                                            selectMode && selectedTweets.has(tweet.id)
-                                                ? 'border-blue-500 ring-1 ring-blue-500 bg-blue-50/50 dark:bg-blue-900/10'
-                                                : 'border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700'
+                                            selectMode && selectedTweets.has(tweet.id) && 'border-blue-500 ring-1 ring-blue-500 bg-blue-50/50 dark:bg-blue-900/10'
                                         )}
                                         onClick={() => selectMode && toggleSelect(tweet.id)}
                                     >
@@ -551,11 +550,6 @@ export default function SidePanel() {
                                                     <Check className="w-3 h-3 text-white" />
                                                 )}
                                             </div>
-                                        )}
-
-                                        {/* Selected Indicator Bar - 非选择模式下隐藏 */}
-                                        {!selectMode && selectedTweets.has(tweet.id) && (
-                                            <div className="absolute left-0 top-3 bottom-3 w-1 bg-blue-500 rounded-r-full" />
                                         )}
 
                                         {/* Card Header */}
