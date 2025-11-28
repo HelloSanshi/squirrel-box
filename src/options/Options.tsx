@@ -199,7 +199,7 @@ export default function Options() {
                                 摘要规则
                             </label>
                             <textarea
-                                value={settings.customSummaryPrompt ?? DEFAULT_SUMMARY_PROMPT}
+                                value={settings.customSummaryPrompt ?? defaultSummaryRules}
                                 onChange={(e) => setSettings({ ...settings, customSummaryPrompt: e.target.value })}
                                 rows={16}
                                 className="w-full px-3 py-2 bg-[#0a0a0a] border border-gray-800 rounded-lg text-white placeholder-gray-600 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm font-mono resize-y"
