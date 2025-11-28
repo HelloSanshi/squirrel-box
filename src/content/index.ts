@@ -209,10 +209,27 @@ async function collectTweet(tweetElement: Element) {
     try {
         // Extract tweet data
         const textElement = tweetElement.querySelector('[data-testid="tweetText"]');
-        const content = textElement?.textContent || '';
+        let content = textElement?.textContent || '';
 
-        if (!content) {
-            throw new Error('无法提取推文内容');
+        // 先提取媒体，判断是否有图片
+        const mediaElements = tweetElement.querySelectorAll('img[src*="pbs.twimg.com"]');
+        const media = Array.from(mediaElements)
+            .map(img => (img as HTMLImageElement).src)
+            .filter(src => {
+                if (src.includes('profile_images')) return false;
+                if (src.includes('emoji')) return false;
+                if (src.includes('_normal') || src.includes('_mini')) return false;
+                return src.includes('/media/') || src.includes('tweet_video_thumb') || src.includes('ext_tw_video_thumb');
+            });
+
+        // 如果既没有文字也没有图片，才报错
+        if (!content && media.length === 0) {
+            throw new Error('无法提取推文内容（无文字也无图片）');
+        }
+
+        // 如果只有图片没有文字，设置提示内容
+        if (!content && media.length > 0) {
+            content = `[图片内容，共 ${media.length} 张图片]`;
         }
 
         const authorElement = tweetElement.querySelector('[data-testid="User-Name"]');
@@ -252,21 +269,6 @@ async function collectTweet(tweetElement: Element) {
             const match = text.match(/\d+/);
             return match ? parseInt(match[0]) : 0;
         };
-
-        // Extract media (过滤掉头像、emoji 等非内容图片)
-        const mediaElements = tweetElement.querySelectorAll('img[src*="pbs.twimg.com"]');
-        const media = Array.from(mediaElements)
-            .map(img => (img as HTMLImageElement).src)
-            .filter(src => {
-                // 过滤掉头像图片
-                if (src.includes('profile_images')) return false;
-                // 过滤掉 emoji 图片
-                if (src.includes('emoji')) return false;
-                // 过滤掉缩略图（太小的图片）
-                if (src.includes('_normal') || src.includes('_mini')) return false;
-                // 只保留媒体图片（通常包含 media 或 tweet_video_thumb）
-                return src.includes('/media/') || src.includes('tweet_video_thumb') || src.includes('ext_tw_video_thumb');
-            });
 
         // Extract tweet URL
         const tweetId = extractTweetId(tweetElement);

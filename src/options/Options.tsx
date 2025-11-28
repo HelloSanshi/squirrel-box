@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Save, CheckCircle, AlertCircle, ChevronDown, ChevronRight } from 'lucide-react';
+import { Save, CheckCircle, AlertCircle, ChevronDown, ChevronRight, Eye, EyeOff } from 'lucide-react';
 import { storage } from '../lib/storage';
 import { Settings } from '../lib/types';
 import { callAI, defaultSummaryRules, defaultCreationRules } from '../lib/ai';
@@ -17,6 +17,7 @@ export default function Options() {
     const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
     const [expandSummaryPrompt, setExpandSummaryPrompt] = useState(false);
     const [expandCreationPrompt, setExpandCreationPrompt] = useState(false);
+    const [showApiKey, setShowApiKey] = useState(false);
 
     useEffect(() => {
         loadSettings();
@@ -82,13 +83,27 @@ export default function Options() {
                                 <label className="block text-sm font-medium text-gray-300 mb-2">
                                     API Key
                                 </label>
-                                <input
-                                    type="password"
-                                    value={settings.apiKey}
-                                    onChange={(e) => setSettings({ ...settings, apiKey: e.target.value })}
-                                    placeholder="sk-..."
-                                    className="w-full px-3 py-2 bg-[#0a0a0a] border border-gray-800 rounded-lg text-white placeholder-gray-600 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
-                                />
+                                <div className="relative">
+                                    <input
+                                        type={showApiKey ? 'text' : 'password'}
+                                        value={settings.apiKey}
+                                        onChange={(e) => setSettings({ ...settings, apiKey: e.target.value })}
+                                        placeholder="sk-..."
+                                        className="w-full px-3 py-2 pr-10 bg-[#0a0a0a] border border-gray-800 rounded-lg text-white placeholder-gray-600 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowApiKey(!showApiKey)}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-300 transition-colors"
+                                        title={showApiKey ? '隐藏密钥' : '显示密钥'}
+                                    >
+                                        {showApiKey ? (
+                                            <EyeOff className="w-4 h-4" />
+                                        ) : (
+                                            <Eye className="w-4 h-4" />
+                                        )}
+                                    </button>
+                                </div>
                             </div>
 
                             <div>
