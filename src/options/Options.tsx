@@ -201,6 +201,29 @@ export default function Options() {
                                 </div>
                             </div>
 
+                            {/* Vision Model - Only show when image recognition is enabled */}
+                            {settings.enableImageRecognition && (
+                                <div className="ml-7">
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                                        视觉模型（可选）
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={settings.visionModel || ''}
+                                        onChange={(e) => setSettings({ ...settings, visionModel: e.target.value || undefined })}
+                                        placeholder={settings.model || 'gpt-4o'}
+                                        className="w-full px-3 py-2 bg-[#0a0a0a] border border-gray-800 rounded-lg text-white placeholder-gray-600 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1.5">
+                                        用于图片识别的模型。留空则使用上方配置的主模型。
+                                        <br />
+                                        <span className="text-amber-500/80">阿里云：qwen-vl-max 或 qwen-vl-plus</span>
+                                        <br />
+                                        <span className="text-gray-600">OpenAI：gpt-4o | Anthropic：claude-sonnet-4-20250514 | Google：gemini-pro-vision</span>
+                                    </p>
+                                </div>
+                            )}
+
                             {/* Comment Collection Toggle */}
                             <div className="flex items-start gap-3">
                                 <input

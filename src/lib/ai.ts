@@ -2,11 +2,15 @@ import { Settings, CreationRequest } from './types';
 
 export async function callAI(
     settings: Settings,
-    messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string | any }>
+    messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string | any }>,
+    options?: { model?: string }
 ): Promise<string> {
     if (!settings.apiKey || !settings.baseUrl) {
         throw new Error('API配置未完成，请前往设置页面配置');
     }
+
+    // 允许通过 options 覆盖模型
+    const model = options?.model || settings.model || 'gpt-4o';
 
     const response = await fetch(`${settings.baseUrl}/chat/completions`, {
         method: 'POST',
@@ -15,7 +19,7 @@ export async function callAI(
             'Authorization': `Bearer ${settings.apiKey}`,
         },
         body: JSON.stringify({
-            model: settings.model || 'gpt-4o',
+            model,
             messages,
             temperature: 0.7,
         }),
@@ -57,6 +61,10 @@ export async function recognizeImage(settings: Settings, imageUrl: string): Prom
         throw new Error('API配置未完成，请前往设置页面配置');
     }
 
+    // 使用视觉模型（优先使用专门配置的视觉模型，否则回退到主模型）
+    const visionModel = settings.visionModel || settings.model || 'gpt-4o';
+    console.log('使用视觉模型:', visionModel);
+
     const prompt = `请仔细分析这张图片，提取其中的所有文字内容。
 要求：
 1. 完整提取图片中的所有文字，保持原有的排版和段落结构
@@ -82,7 +90,7 @@ export async function recognizeImage(settings: Settings, imageUrl: string): Prom
                 { type: 'image_url', image_url: { url: imageData } }
             ]
         }
-    ]);
+    ], { model: visionModel });
 
     return result;
 }
