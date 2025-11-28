@@ -500,33 +500,37 @@ export default function SidePanel() {
                                     <div
                                         key={tweet.id}
                                         className={cn(
-                                            'group bg-white dark:bg-zinc-900 rounded-xl p-5 transition-all cursor-pointer border shadow-sm hover:shadow-md',
+                                            'group bg-white dark:bg-zinc-900 rounded-xl p-5 transition-all cursor-pointer border shadow-sm hover:shadow-md relative',
                                             selectedTweets.has(tweet.id)
                                                 ? 'border-blue-500 ring-1 ring-blue-500 bg-blue-50/50 dark:bg-blue-900/10'
                                                 : 'border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700'
                                         )}
                                         onClick={() => toggleSelect(tweet.id)}
                                     >
+                                        {/* Selected Indicator Bar */}
+                                        {selectedTweets.has(tweet.id) && (
+                                            <div className="absolute left-0 top-3 bottom-3 w-1 bg-blue-500 rounded-r-full" />
+                                        )}
+
                                         {/* Card Header */}
                                         <div className="flex items-start justify-between gap-3 mb-3">
                                             <div className="flex items-center gap-2 min-w-0">
                                                 <span className="font-semibold text-zinc-900 dark:text-zinc-100 text-sm truncate">
                                                     {tweet.author}
                                                 </span>
-                                                <span className="text-zinc-400 text-xs shrink-0">
-                                                    @{tweet.authorHandle}
+                                                {/* Removed Handle */}
+                                                <span className="text-[10px] bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 px-2 py-0.5 rounded-full font-medium shrink-0">
+                                                    {getPlatformName(tweet.platform)}
                                                 </span>
-                                            </div>
-                                            <div className="flex items-center gap-1.5 shrink-0">
                                                 {tweet.category && (
-                                                    <span className={cn('text-[10px] px-2 py-0.5 rounded-full font-medium flex items-center gap-1', getCategoryColor(tweet.category))}>
+                                                    <span className={cn('text-[10px] px-2 py-0.5 rounded-full font-medium flex items-center gap-1 shrink-0', getCategoryColor(tweet.category))}>
                                                         {tweet.category}
                                                     </span>
                                                 )}
-                                                <span className="text-[10px] bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 px-2 py-0.5 rounded-full font-medium">
-                                                    {getPlatformName(tweet.platform)}
-                                                </span>
                                             </div>
+                                            <span className="text-[11px] text-zinc-400 dark:text-zinc-500 font-medium whitespace-nowrap">
+                                                {formatDate(tweet.collectTime)}
+                                            </span>
                                         </div>
 
                                         {/* Summary Content */}
@@ -559,24 +563,18 @@ export default function SidePanel() {
                                             )}
                                         </div>
 
-                                        {/* Keywords */}
-                                        {tweet.keywords.length > 0 && (
-                                            <div className="flex flex-wrap gap-1.5 mb-4">
-                                                {tweet.keywords.map((kw, idx) => (
+                                        {/* Footer: Keywords & Hover Actions */}
+                                        <div className="flex items-end justify-between min-h-[28px]">
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {tweet.keywords.length > 0 && tweet.keywords.map((kw, idx) => (
                                                     <span key={idx} className="text-[10px] bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 dark:text-zinc-400 px-2 py-1 rounded border border-zinc-100 dark:border-zinc-700/50">
                                                         #{kw}
                                                     </span>
                                                 ))}
                                             </div>
-                                        )}
-
-                                        {/* Card Footer */}
-                                        <div className="flex items-center justify-between pt-3 border-t border-zinc-100 dark:border-zinc-800/50">
-                                            <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium">
-                                                {formatDate(tweet.collectTime)}
-                                            </span>
                                             
-                                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            {/* Actions - visible on hover */}
+                                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
                                                 {tweet.tweetUrl && (
                                                     <a
                                                         href={tweet.tweetUrl}
@@ -597,14 +595,9 @@ export default function SidePanel() {
                                                     className="p-1.5 text-zinc-400 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-md transition-colors"
                                                     title="作者主页"
                                                 >
-                                                    <img 
-                                                        src={`https://unavatar.io/${tweet.platform === 'twitter' ? 'twitter' : 'instagram'}/${tweet.authorHandle}`} 
-                                                        onError={(e) => (e.currentTarget.style.display = 'none')}
-                                                        className="w-3.5 h-3.5 rounded-full hidden"
-                                                        alt=""
-                                                    />
-                                                    {/* Fallback icon if image fails or until I implement better avatars */}
-                                                    <span className="text-[10px]">@</span>
+                                                     {/* Replaced with User Icon since image loading might be unreliable and user icon is safer default */}
+                                                    <ExternalLink className="w-3.5 h-3.5 hidden" /> 
+                                                    <span className="text-[10px] font-bold">@</span>
                                                 </a>
                                                 <button
                                                     onClick={(e) => {
