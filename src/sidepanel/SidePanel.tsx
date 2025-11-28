@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { 
     BookOpen, PenTool, Trash2, Copy, Sparkles, Loader2, ExternalLink, 
     Send, Settings as SettingsIcon, Download, MousePointer2, 
-    AlertTriangle, Sun, Moon, Monitor, ChevronDown, Filter
+    AlertTriangle, Sun, Moon, Monitor, ChevronDown, Filter,
+    Plus, Check, X, Library
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { storage, Theme } from '../lib/storage';
@@ -35,6 +36,9 @@ export default function SidePanel() {
         tweetId: string;
         authorName: string;
     }>({ show: false, tweetId: '', authorName: '' });
+
+    // 选择参考模式状态
+    const [selectMode, setSelectMode] = useState(false);
 
     useEffect(() => {
         loadData();
