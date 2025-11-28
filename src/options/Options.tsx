@@ -180,6 +180,25 @@ export default function Options() {
                                     </p>
                                 </div>
                             </div>
+
+                            {/* Comment Collection Toggle */}
+                            <div className="flex items-start gap-3">
+                                <input
+                                    type="checkbox"
+                                    id="commentCollection"
+                                    checked={settings.enableCommentCollection || false}
+                                    onChange={(e) => setSettings({ ...settings, enableCommentCollection: e.target.checked })}
+                                    className="mt-1 w-4 h-4 rounded bg-[#0a0a0a] border-gray-800 text-blue-600 focus:ring-blue-500 focus:ring-offset-0"
+                                />
+                                <div className="flex-1">
+                                    <label htmlFor="commentCollection" className="text-sm font-medium text-gray-300 cursor-pointer">
+                                        收集评论区内容
+                                    </label>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        收藏时同时收集评论区内容。作者自己的补充内容（线程/回复）会整合到摘要中，其他用户的精彩评论会单独展示为"评论区观点"。
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                     </div>
 

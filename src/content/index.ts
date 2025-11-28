@@ -221,13 +221,38 @@ async function collectTweet(tweetElement: Element) {
             return match ? parseInt(match[0]) : 0;
         };
 
-        // Extract media
+        // Extract media (过滤掉头像、emoji 等非内容图片)
         const mediaElements = tweetElement.querySelectorAll('img[src*="pbs.twimg.com"]');
-        const media = Array.from(mediaElements).map(img => (img as HTMLImageElement).src);
+        const media = Array.from(mediaElements)
+            .map(img => (img as HTMLImageElement).src)
+            .filter(src => {
+                // 过滤掉头像图片
+                if (src.includes('profile_images')) return false;
+                // 过滤掉 emoji 图片
+                if (src.includes('emoji')) return false;
+                // 过滤掉缩略图（太小的图片）
+                if (src.includes('_normal') || src.includes('_mini')) return false;
+                // 只保留媒体图片（通常包含 media 或 tweet_video_thumb）
+                return src.includes('/media/') || src.includes('tweet_video_thumb') || src.includes('ext_tw_video_thumb');
+            });
 
         // Extract tweet URL
         const tweetId = extractTweetId(tweetElement);
         const tweetUrl = `https://twitter.com/${authorHandle}/status/${tweetId}`;
+
+        // 获取设置
+        const settings = await storage.getSettings();
+
+        // 收集评论区内容（如果启用）
+        let commentData: CommentData | null = null;
+        if (settings?.enableCommentCollection) {
+            console.log('评论区收集已启用，开始收集评论...');
+            commentData = collectComments(tweetElement, authorHandle);
+            console.log('评论区收集完成:', {
+                authorThread: commentData.authorThread.slice(0, 50),
+                commentsCount: commentData.otherComments.length
+            });
+        }
 
         const tweet: Tweet = {
             id: generateId(),
@@ -245,6 +270,9 @@ async function collectTweet(tweetElement: Element) {
                 retweets: getCount(retweetButton),
                 replies: getCount(replyButton),
             },
+            // 评论区内容
+            authorThread: commentData?.authorThread || undefined,
+            commentHighlights: commentData?.otherComments.length ? commentData.otherComments.join('\n') : undefined,
         };
 
         console.log('Collecting tweet:', tweet);
@@ -253,10 +281,14 @@ async function collectTweet(tweetElement: Element) {
         await storage.saveTweet(tweet);
 
         // Get AI summary in background
-        const settings = await storage.getSettings();
         if (settings && settings.apiKey) {
             try {
                 let contentToAnalyze = content;
+
+                // 如果有作者的线程内容，整合进去
+                if (commentData?.authorThread) {
+                    contentToAnalyze = `${content}\n\n【作者补充内容】\n${commentData.authorThread}`;
+                }
 
                 // 如果启用了图片识别且有图片，先识别图片内容
                 if (settings.enableImageRecognition && media.length > 0) {
@@ -267,13 +299,18 @@ async function collectTweet(tweetElement: Element) {
                         );
                         const recognizedText = imageTexts.filter(t => t).join('\n\n');
                         if (recognizedText) {
-                            contentToAnalyze = `${content}\n\n【图片内容】\n${recognizedText}`;
+                            contentToAnalyze = `${contentToAnalyze}\n\n【图片内容】\n${recognizedText}`;
                             console.log('图片识别完成，识别出文字:', recognizedText.slice(0, 100));
                         }
                     } catch (error) {
                         console.error('图片识别失败:', error);
                         // 识别失败也继续处理原始内容
                     }
+                }
+
+                // 如果有其他用户的评论，添加到分析内容中
+                if (commentData?.otherComments.length) {
+                    contentToAnalyze = `${contentToAnalyze}\n\n【评论区观点】\n${commentData.otherComments.join('\n')}`;
                 }
 
                 const aiResult = await summarizeTweet(settings, contentToAnalyze);
@@ -301,6 +338,56 @@ function extractTweetId(tweetElement: Element): string {
         return match ? match[1] : generateId();
     }
     return generateId();
+}
+
+// 收集评论区内容
+interface CommentData {
+    authorThread: string; // 作者自己的内容（线程/回复）
+    otherComments: string[]; // 其他用户的评论
+}
+
+function collectComments(mainTweetElement: Element, authorHandle: string): CommentData {
+    const result: CommentData = {
+        authorThread: '',
+        otherComments: []
+    };
+
+    // 获取页面上所有的推文（回复）
+    const allTweets = document.querySelectorAll('article[data-testid="tweet"]');
+    const authorThreadParts: string[] = [];
+    const otherCommentsSet = new Set<string>(); // 用 Set 去重
+
+    allTweets.forEach((tweet) => {
+        // 跳过主推文本身
+        if (tweet === mainTweetElement) return;
+
+        // 提取这条推文的作者
+        const tweetAuthorElement = tweet.querySelector('[data-testid="User-Name"]');
+        const handleElement = tweetAuthorElement?.querySelectorAll('span')[1];
+        const tweetHandle = handleElement?.textContent?.replace('@', '') || '';
+
+        // 提取推文内容
+        const textElement = tweet.querySelector('[data-testid="tweetText"]');
+        const content = textElement?.textContent?.trim() || '';
+
+        if (!content) return;
+
+        // 判断是否是原作者的内容
+        if (tweetHandle.toLowerCase() === authorHandle.toLowerCase()) {
+            // 作者自己的线程/回复
+            authorThreadParts.push(content);
+        } else if (tweetHandle) {
+            // 其他用户的评论（只取前 100 字，去重）
+            const shortComment = content.length > 100 ? content.slice(0, 100) + '...' : content;
+            const commentWithAuthor = `@${tweetHandle}: ${shortComment}`;
+            otherCommentsSet.add(commentWithAuthor);
+        }
+    });
+
+    result.authorThread = authorThreadParts.join('\n\n');
+    result.otherComments = Array.from(otherCommentsSet).slice(0, 10); // 最多取 10 条评论
+
+    return result;
 }
 
 function showNotification(message: string) {

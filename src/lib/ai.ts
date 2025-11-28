@@ -30,6 +30,27 @@ export async function callAI(
     return data.choices[0]?.message?.content || '';
 }
 
+// 将图片 URL 转换为 base64
+async function imageUrlToBase64(imageUrl: string): Promise<string> {
+    try {
+        const response = await fetch(imageUrl);
+        const blob = await response.blob();
+        
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const base64 = reader.result as string;
+                resolve(base64);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    } catch (error) {
+        console.error('图片转换 base64 失败:', error);
+        throw error;
+    }
+}
+
 // 识别图片中的文字内容
 export async function recognizeImage(settings: Settings, imageUrl: string): Promise<string> {
     if (!settings.apiKey || !settings.baseUrl) {
@@ -43,12 +64,22 @@ export async function recognizeImage(settings: Settings, imageUrl: string): Prom
 3. 忽略水印、装饰性文字
 4. 只返回提取的文字内容，不要添加任何额外说明`;
 
+    // 将图片转换为 base64，避免 API 服务器无法访问外部图片 URL
+    let imageData = imageUrl;
+    try {
+        imageData = await imageUrlToBase64(imageUrl);
+        console.log('图片已转换为 base64');
+    } catch (error) {
+        console.warn('图片转换失败，尝试直接使用 URL:', error);
+        // 如果转换失败，尝试直接使用 URL
+    }
+
     const result = await callAI(settings, [
         {
             role: 'user',
             content: [
                 { type: 'text', text: prompt },
-                { type: 'image_url', image_url: { url: imageUrl } }
+                { type: 'image_url', image_url: { url: imageData } }
             ]
         }
     ]);

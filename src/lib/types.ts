@@ -18,6 +18,9 @@ export interface Tweet {
         replies: number;
     };
     tags?: string[];
+    // 评论区相关
+    authorThread?: string; // 作者自己的线程/补充内容
+    commentHighlights?: string; // 评论区精选观点
 }
 
 export interface Settings {
@@ -28,6 +31,7 @@ export interface Settings {
     readingMode: boolean;
     customSummaryPrompt?: string; // 自定义摘要提示词
     enableImageRecognition?: boolean; // 图片识别开关
+    enableCommentCollection?: boolean; // 收集评论区内容开关
 }
 
 export interface CreationRequest {
