@@ -32,7 +32,11 @@
         {
             "matches": [
                 "https://twitter.com/*",
-                "https://x.com/*"
+                "https://www.twitter.com/*",
+                "https://mobile.twitter.com/*",
+                "https://x.com/*",
+                "https://www.x.com/*",
+                "https://mobile.x.com/*"
             ],
             "js": [
                 "src/content/index.ts"
@@ -51,7 +55,16 @@
     "web_accessible_resources": [
         {
             "resources": ["icons/*"],
-            "matches": ["https://twitter.com/*", "https://x.com/*", "https://www.xiaohongshu.com/*", "https://xiaohongshu.com/*"]
+            "matches": [
+                "https://twitter.com/*", 
+                "https://www.twitter.com/*",
+                "https://mobile.twitter.com/*",
+                "https://x.com/*", 
+                "https://www.x.com/*",
+                "https://mobile.x.com/*",
+                "https://www.xiaohongshu.com/*", 
+                "https://xiaohongshu.com/*"
+            ]
         }
     ]
 }

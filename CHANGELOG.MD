@@ -2,6 +2,10 @@
 
 ## [2025-11-28]
 
+### 修复
+- **小红书头像提取修复**：修复取头像时错误获取第一个评论者头像而非作者头像的问题。改进逻辑：优先使用作者链接附近的头像，排除评论区元素
+- **一键发布 Twitter 识别修复**：扩展 Twitter/X 页面匹配规则，新增 `www.`、`mobile.` 等 URL 变体支持，修复已打开 Twitter 但提示"请先打开 Twitter/X 页面"的问题
+
 ### 文档
 - **Cursor Rules 设置文档**：创建 `docs/cursor-rules-setup.md`，提供项目初始化时配置 Cursor 规则的完整指南
   - 包含 4 个规则文件的详细内容和用途说明（changlogs、git-commit、progress、script-docstring）

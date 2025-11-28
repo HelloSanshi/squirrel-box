@@ -233,22 +233,59 @@ async function collectNote(noteElement: Element) {
             authorUserId = userIdMatch ? userIdMatch[1] : '';
         }
 
-        // 提取作者头像
+        // 提取作者头像 - 优先使用作者链接附近的头像，避免取到评论区头像
         let authorAvatar = '';
-        const avatarSelectors = [
-            '.author-avatar img',
-            '.avatar img',
-            '[class*="avatar"] img',
-            'a[href*="/user/profile/"] img',
-        ];
-        for (const selector of avatarSelectors) {
-            const avatarImg = noteElement.querySelector(selector) as HTMLImageElement;
-            if (avatarImg?.src && avatarImg.src.includes('sns-avatar')) {
-                authorAvatar = avatarImg.src;
-                break;
+        
+        // 方法1：如果有作者链接，查找同一个作者链接内或附近的头像
+        if (authorLinkElement) {
+            // 先在作者链接内查找
+            const avatarInLink = authorLinkElement.querySelector('img[src*="sns-avatar"]') as HTMLImageElement;
+            if (avatarInLink?.src) {
+                authorAvatar = avatarInLink.src;
+            } else {
+                // 查找与作者链接 href 相同的另一个 a 标签（通常头像也有链接到用户主页）
+                const authorHref = authorLinkElement.getAttribute('href');
+                if (authorHref) {
+                    const allAuthorLinks = noteElement.querySelectorAll(`a[href="${authorHref}"]`);
+                    for (const link of allAuthorLinks) {
+                        const avatarImg = link.querySelector('img[src*="sns-avatar"]') as HTMLImageElement;
+                        if (avatarImg?.src) {
+                            authorAvatar = avatarImg.src;
+                            break;
+                        }
+                    }
+                }
             }
         }
-        console.log('提取到的作者头像:', authorAvatar ? '有' : '无');
+        
+        // 方法2：如果方法1没找到，尝试在笔记顶部区域查找（排除评论区）
+        if (!authorAvatar) {
+            // 查找笔记详情区域的头像（通常在 .note-top、.author-wrapper 等区域）
+            const topSelectors = [
+                '.note-top img[src*="sns-avatar"]',
+                '.author-wrapper img[src*="sns-avatar"]',
+                '[class*="author-info"] img[src*="sns-avatar"]',
+                '.note-detail header img[src*="sns-avatar"]',
+            ];
+            for (const selector of topSelectors) {
+                const avatarImg = document.querySelector(selector) as HTMLImageElement;
+                if (avatarImg?.src) {
+                    authorAvatar = avatarImg.src;
+                    break;
+                }
+            }
+        }
+        
+        // 方法3：最后的备选 - 从整个页面的第一个作者头像区域找
+        if (!authorAvatar) {
+            // 在笔记卡片外的固定作者信息区域查找（详情页顶部）
+            const pageHeaderAvatar = document.querySelector('.author-container img[src*="sns-avatar"], .note-scroller > div:first-child img[src*="sns-avatar"]') as HTMLImageElement;
+            if (pageHeaderAvatar?.src) {
+                authorAvatar = pageHeaderAvatar.src;
+            }
+        }
+        
+        console.log('提取到的作者头像:', authorAvatar ? '有' : '无', authorAvatar?.slice(0, 50));
 
         // 提取笔记URL并清理
         const linkElement = noteElement.querySelector('a[href*="/explore/"]');

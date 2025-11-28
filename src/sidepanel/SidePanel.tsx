@@ -169,11 +169,20 @@ export default function SidePanel() {
     async function publishTweet(text: string) {
         setPublishing(true);
         try {
-            // Get active Twitter tab
-            const [tab] = await chrome.tabs.query({ url: ['https://twitter.com/*', 'https://x.com/*'] });
+            // Get active Twitter tab - 包含所有可能的 URL 变体
+            const [tab] = await chrome.tabs.query({ 
+                url: [
+                    'https://twitter.com/*', 
+                    'https://x.com/*',
+                    'https://www.twitter.com/*',
+                    'https://www.x.com/*',
+                    'https://mobile.twitter.com/*',
+                    'https://mobile.x.com/*'
+                ] 
+            });
 
             if (!tab || !tab.id) {
-                throw new Error('请先打开 Twitter/X 页面');
+                throw new Error('请先打开 Twitter/X 页面（需要是 twitter.com 或 x.com）');
             }
 
             // Send message to content script to publish
