@@ -515,141 +515,99 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-// Publish tweet function
+// Publish tweet function - 使用剪贴板粘贴方式，更可靠
 async function publishTweetToTwitter(content: string) {
     try {
+        // 先将内容复制到剪贴板
+        await navigator.clipboard.writeText(content);
+        
         // Find compose button or text areas
         const composeButton = document.querySelector('[data-testid="SideNav_NewTweet_Button"]') as HTMLElement;
 
         if (composeButton) {
             composeButton.click();
             // Wait for compose box to appear
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await new Promise(resolve => setTimeout(resolve, 800));
         }
 
-        // Find the compose text area - Twitter 使用 contenteditable div
+        // Find the compose text area
         const textArea = document.querySelector('[data-testid="tweetTextarea_0"]') as HTMLElement;
 
         if (!textArea) {
-            throw new Error('无法找到发推文本框，请确保已打开 Twitter/X 页面');
+            throw new Error('无法找到发推文本框');
         }
-
-        // 先复制到剪贴板（用于备选方案）
-        try {
-            await navigator.clipboard.writeText(content);
-        } catch {
-            // 剪贴板可能没有权限，忽略
-        }
-
-        // 聚焦并清空选区
-        textArea.focus();
-        await new Promise(resolve => setTimeout(resolve, 100));
 
         // 找到实际的可编辑元素
         const editableDiv = textArea.querySelector('[contenteditable="true"]') || 
                            textArea.closest('[contenteditable="true"]') || 
                            textArea;
 
-        // 确保聚焦到可编辑元素
-        if (editableDiv instanceof HTMLElement) {
-            editableDiv.focus();
+        if (!(editableDiv instanceof HTMLElement)) {
+            throw new Error('无法找到可编辑区域');
         }
 
-        // 清空现有内容
-        const selection = window.getSelection();
-        if (selection) {
-            selection.removeAllRanges();
-        }
-        
-        // 将光标移到编辑器开头
-        if (editableDiv instanceof HTMLElement) {
-            const range = document.createRange();
-            range.selectNodeContents(editableDiv);
-            range.collapse(true); // collapse to start
-            selection?.addRange(range);
-        }
+        // 聚焦编辑器
+        editableDiv.focus();
+        await new Promise(resolve => setTimeout(resolve, 100));
 
-        // 逐行插入文本
-        const lines = content.split('\n');
-        
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
+        // 方法1：尝试使用 DataTransfer 模拟粘贴
+        try {
+            const clipboardData = new DataTransfer();
+            clipboardData.setData('text/plain', content);
             
-            // 插入文本（即使是空行也处理换行）
-            if (line) {
-                // 尝试 insertText
-                const success = document.execCommand('insertText', false, line);
-                if (!success) {
-                    // 备选：使用 InputEvent
-                    editableDiv.dispatchEvent(new InputEvent('beforeinput', {
-                        inputType: 'insertText',
-                        data: line,
-                        bubbles: true,
-                        cancelable: true
-                    }));
-                }
+            const pasteEvent = new ClipboardEvent('paste', {
+                bubbles: true,
+                cancelable: true,
+                clipboardData: clipboardData
+            });
+            
+            editableDiv.dispatchEvent(pasteEvent);
+            await new Promise(resolve => setTimeout(resolve, 200));
+            
+            // 检查是否粘贴成功
+            const currentContent = editableDiv.textContent || '';
+            if (currentContent.includes(content.slice(0, 20))) {
+                showNotification('✓ 内容已填入，请检查后点击发布');
+                return;
+            }
+        } catch (e) {
+            console.log('DataTransfer paste failed, trying alternative method');
+        }
+
+        // 方法2：尝试 execCommand
+        try {
+            // 选中所有现有内容（如果有的话）
+            const selection = window.getSelection();
+            if (selection) {
+                const range = document.createRange();
+                range.selectNodeContents(editableDiv);
+                selection.removeAllRanges();
+                selection.addRange(range);
             }
             
-            // 插入换行（除了最后一行）
-            if (i < lines.length - 1) {
-                // 模拟按下 Enter 键
-                editableDiv.dispatchEvent(new KeyboardEvent('keydown', {
-                    key: 'Enter',
-                    code: 'Enter',
-                    keyCode: 13,
-                    which: 13,
-                    bubbles: true,
-                    cancelable: true
-                }));
-                
-                // 使用 insertParagraph
-                let success = document.execCommand('insertParagraph', false);
-                if (!success) {
-                    success = document.execCommand('insertLineBreak', false);
+            // 使用 insertText
+            const success = document.execCommand('insertText', false, content);
+            if (success) {
+                await new Promise(resolve => setTimeout(resolve, 200));
+                const currentContent = editableDiv.textContent || '';
+                if (currentContent.length > content.length / 2) {
+                    showNotification('✓ 内容已填入，请检查后点击发布');
+                    return;
                 }
-                if (!success) {
-                    // 尝试 InputEvent
-                    editableDiv.dispatchEvent(new InputEvent('beforeinput', {
-                        inputType: 'insertParagraph',
-                        bubbles: true,
-                        cancelable: true
-                    }));
-                }
-                
-                editableDiv.dispatchEvent(new KeyboardEvent('keyup', {
-                    key: 'Enter',
-                    code: 'Enter',
-                    keyCode: 13,
-                    which: 13,
-                    bubbles: true,
-                    cancelable: true
-                }));
             }
-            
-            // 给 React 一点时间处理
-            await new Promise(resolve => setTimeout(resolve, 20));
+        } catch (e) {
+            console.log('execCommand failed');
         }
 
-        // 触发 input 和 change 事件确保 React 检测到变化
-        editableDiv.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
-        editableDiv.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
-
-        // 检查是否成功
-        await new Promise(resolve => setTimeout(resolve, 200));
+        // 方法3：提示用户手动粘贴
+        showNotification('📋 内容已复制！请按 Cmd+V (Windows: Ctrl+V) 粘贴');
         
-        const currentContent = editableDiv.textContent || '';
-        if (currentContent.length < content.length / 3) {
-            // 如果内容太少，提示用户手动粘贴
-            showNotification('📋 内容已复制！请按 Ctrl+V (Mac: Cmd+V) 粘贴');
-        } else {
-            showNotification('✓ 内容已填入，请检查后点击发布');
-        }
     } catch (error) {
         console.error('Failed to publish tweet:', error);
-        // 尝试复制到剪贴板作为备选
+        // 确保内容在剪贴板中
         try {
             await navigator.clipboard.writeText(content);
-            showNotification('📋 内容已复制！请按 Ctrl+V 粘贴到输入框');
+            showNotification('📋 内容已复制！请按 Cmd+V 粘贴到输入框');
         } catch {
             showNotification('✗ 发布失败：' + (error instanceof Error ? error.message : '未知错误'));
         }
