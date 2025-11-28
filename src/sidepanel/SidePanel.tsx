@@ -46,11 +46,20 @@ export default function SidePanel() {
         }
     }
 
-    async function handleDelete(tweetId: string) {
+    async function handleDelete(tweetId: string, authorName?: string) {
+        const confirmMessage = authorName 
+            ? `确定要删除 ${authorName} 的这条收藏吗？` 
+            : '确定要删除这条收藏吗？';
+        
+        if (!window.confirm(confirmMessage)) {
+            return;
+        }
+        
         await storage.deleteTweet(tweetId);
         setTweets(tweets.filter(t => t.id !== tweetId));
         selectedTweets.delete(tweetId);
         setSelectedTweets(new Set(selectedTweets));
+        showNotification('已删除');
     }
 
     function toggleSelect(tweetId: string) {
@@ -546,9 +555,10 @@ export default function SidePanel() {
                                                     <button
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            handleDelete(tweet.id);
+                                                            handleDelete(tweet.id, tweet.author);
                                                         }}
                                                         className="text-gray-600 hover:text-red-400 transition-colors"
+                                                        title="删除"
                                                     >
                                                         <Trash2 className="w-3.5 h-3.5" />
                                                     </button>
