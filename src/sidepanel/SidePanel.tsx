@@ -169,6 +169,9 @@ export default function SidePanel() {
     async function publishTweet(text: string) {
         setPublishing(true);
         try {
+            // 先在 SidePanel 端复制到剪贴板（SidePanel 有焦点所以可以成功）
+            await navigator.clipboard.writeText(text);
+            
             // Get active Twitter tab - 包含所有可能的 URL 变体
             const [tab] = await chrome.tabs.query({ 
                 url: [
@@ -182,18 +185,24 @@ export default function SidePanel() {
             });
 
             if (!tab || !tab.id) {
-                throw new Error('请先打开 Twitter/X 页面（需要是 twitter.com 或 x.com）');
+                // 即使没找到 Twitter 页面，内容已在剪贴板
+                showNotification('📋 内容已复制！请打开 Twitter 后按 Cmd+V 粘贴');
+                return;
             }
 
-            // Send message to content script to publish
+            // Send message to content script to publish (内容已在剪贴板)
             await chrome.tabs.sendMessage(tab.id, {
                 type: 'PUBLISH_TWEET',
                 content: text,
             });
-
-            showNotification('✓ 推文已发布！');
         } catch (error) {
-            showNotification('✗ 发布失败：' + (error instanceof Error ? error.message : '未知错误'));
+            // 尝试至少复制到剪贴板
+            try {
+                await navigator.clipboard.writeText(text);
+                showNotification('📋 内容已复制！请按 Cmd+V 粘贴到 Twitter');
+            } catch {
+                showNotification('✗ 发布失败：' + (error instanceof Error ? error.message : '未知错误'));
+            }
         } finally {
             setPublishing(false);
         }

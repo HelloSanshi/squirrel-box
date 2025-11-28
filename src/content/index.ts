@@ -515,13 +515,10 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-// Publish tweet function - 使用剪贴板粘贴方式，更可靠
-async function publishTweetToTwitter(content: string) {
+// Publish tweet function - 内容已由 SidePanel 复制到剪贴板，这里只需打开编辑框并提示粘贴
+async function publishTweetToTwitter(_content: string) {
     try {
-        // 先将内容复制到剪贴板
-        await navigator.clipboard.writeText(content);
-        
-        // Find compose button or text areas
+        // 尝试打开发推编辑框
         const composeButton = document.querySelector('[data-testid="SideNav_NewTweet_Button"]') as HTMLElement;
 
         if (composeButton) {
@@ -534,7 +531,9 @@ async function publishTweetToTwitter(content: string) {
         const textArea = document.querySelector('[data-testid="tweetTextarea_0"]') as HTMLElement;
 
         if (!textArea) {
-            throw new Error('无法找到发推文本框');
+            // 如果没找到文本框，可能用户需要先点击发推按钮
+            showNotification('📋 内容已复制！请点击发推按钮后按 Cmd+V 粘贴');
+            return;
         }
 
         // 找到实际的可编辑元素
@@ -543,17 +542,21 @@ async function publishTweetToTwitter(content: string) {
                            textArea;
 
         if (!(editableDiv instanceof HTMLElement)) {
-            throw new Error('无法找到可编辑区域');
+            showNotification('📋 内容已复制！请按 Cmd+V 粘贴');
+            return;
         }
 
         // 聚焦编辑器
         editableDiv.focus();
         await new Promise(resolve => setTimeout(resolve, 100));
 
-        // 方法1：尝试使用 DataTransfer 模拟粘贴
+        // 尝试使用 DataTransfer 模拟粘贴（内容已在剪贴板）
         try {
+            // 从剪贴板读取内容
+            const clipboardText = await navigator.clipboard.readText();
+            
             const clipboardData = new DataTransfer();
-            clipboardData.setData('text/plain', content);
+            clipboardData.setData('text/plain', clipboardText);
             
             const pasteEvent = new ClipboardEvent('paste', {
                 bubbles: true,
@@ -562,55 +565,24 @@ async function publishTweetToTwitter(content: string) {
             });
             
             editableDiv.dispatchEvent(pasteEvent);
-            await new Promise(resolve => setTimeout(resolve, 200));
+            await new Promise(resolve => setTimeout(resolve, 300));
             
             // 检查是否粘贴成功
             const currentContent = editableDiv.textContent || '';
-            if (currentContent.includes(content.slice(0, 20))) {
+            if (currentContent.length > 10) {
                 showNotification('✓ 内容已填入，请检查后点击发布');
                 return;
             }
         } catch (e) {
-            console.log('DataTransfer paste failed, trying alternative method');
+            console.log('Auto paste failed:', e);
         }
 
-        // 方法2：尝试 execCommand
-        try {
-            // 选中所有现有内容（如果有的话）
-            const selection = window.getSelection();
-            if (selection) {
-                const range = document.createRange();
-                range.selectNodeContents(editableDiv);
-                selection.removeAllRanges();
-                selection.addRange(range);
-            }
-            
-            // 使用 insertText
-            const success = document.execCommand('insertText', false, content);
-            if (success) {
-                await new Promise(resolve => setTimeout(resolve, 200));
-                const currentContent = editableDiv.textContent || '';
-                if (currentContent.length > content.length / 2) {
-                    showNotification('✓ 内容已填入，请检查后点击发布');
-                    return;
-                }
-            }
-        } catch (e) {
-            console.log('execCommand failed');
-        }
-
-        // 方法3：提示用户手动粘贴
-        showNotification('📋 内容已复制！请按 Cmd+V (Windows: Ctrl+V) 粘贴');
+        // 自动粘贴失败，提示用户手动粘贴
+        showNotification('📋 内容已复制！请按 Cmd+V 粘贴');
         
     } catch (error) {
-        console.error('Failed to publish tweet:', error);
-        // 确保内容在剪贴板中
-        try {
-            await navigator.clipboard.writeText(content);
-            showNotification('📋 内容已复制！请按 Cmd+V 粘贴到输入框');
-        } catch {
-            showNotification('✗ 发布失败：' + (error instanceof Error ? error.message : '未知错误'));
-        }
+        console.error('Failed to prepare tweet:', error);
+        showNotification('📋 内容已复制！请按 Cmd+V 粘贴到输入框');
     }
 }
 
