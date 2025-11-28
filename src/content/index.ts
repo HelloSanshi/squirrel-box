@@ -515,15 +515,14 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-// Publish tweet function - 内容已由 SidePanel 复制到剪贴板，这里只需打开编辑框并提示粘贴
-async function publishTweetToTwitter(_content: string) {
+// Publish tweet function - 内容已由 SidePanel 复制到剪贴板
+async function publishTweetToTwitter(content: string) {
     try {
         // 尝试打开发推编辑框
         const composeButton = document.querySelector('[data-testid="SideNav_NewTweet_Button"]') as HTMLElement;
 
         if (composeButton) {
             composeButton.click();
-            // Wait for compose box to appear
             await new Promise(resolve => setTimeout(resolve, 800));
         }
 
@@ -531,7 +530,6 @@ async function publishTweetToTwitter(_content: string) {
         const textArea = document.querySelector('[data-testid="tweetTextarea_0"]') as HTMLElement;
 
         if (!textArea) {
-            // 如果没找到文本框，可能用户需要先点击发推按钮
             showNotification('📋 内容已复制！请点击发推按钮后按 Cmd+V 粘贴');
             return;
         }
@@ -548,15 +546,43 @@ async function publishTweetToTwitter(_content: string) {
 
         // 聚焦编辑器
         editableDiv.focus();
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 150));
 
-        // 尝试使用 DataTransfer 模拟粘贴（内容已在剪贴板）
+        // 方法1: 尝试直接设置内容（使用 execCommand insertText）
+        let success = false;
         try {
-            // 从剪贴板读取内容
-            const clipboardText = await navigator.clipboard.readText();
+            // 先清空
+            editableDiv.textContent = '';
             
+            // 触发 focus 和 click 确保编辑器激活
+            editableDiv.click();
+            await new Promise(resolve => setTimeout(resolve, 50));
+            
+            // 使用 execCommand insertText
+            success = document.execCommand('insertText', false, content);
+            
+            if (success) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                // 触发 input 事件让 React 检测到变化
+                editableDiv.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        } catch (e) {
+            console.log('execCommand insertText failed:', e);
+        }
+
+        // 检查是否成功
+        await new Promise(resolve => setTimeout(resolve, 200));
+        const currentContent = editableDiv.textContent || '';
+        
+        if (currentContent.length > content.length / 2) {
+            showNotification('✓ 内容已填入，请检查后点击发布');
+            return;
+        }
+
+        // 方法2: 尝试模拟粘贴事件
+        try {
             const clipboardData = new DataTransfer();
-            clipboardData.setData('text/plain', clipboardText);
+            clipboardData.setData('text/plain', content);
             
             const pasteEvent = new ClipboardEvent('paste', {
                 bubbles: true,
@@ -565,19 +591,39 @@ async function publishTweetToTwitter(_content: string) {
             });
             
             editableDiv.dispatchEvent(pasteEvent);
-            await new Promise(resolve => setTimeout(resolve, 300));
+            await new Promise(resolve => setTimeout(resolve, 200));
             
-            // 检查是否粘贴成功
-            const currentContent = editableDiv.textContent || '';
-            if (currentContent.length > 10) {
+            const afterPaste = editableDiv.textContent || '';
+            if (afterPaste.length > content.length / 2) {
                 showNotification('✓ 内容已填入，请检查后点击发布');
                 return;
             }
         } catch (e) {
-            console.log('Auto paste failed:', e);
+            console.log('Paste event failed:', e);
         }
 
-        // 自动粘贴失败，提示用户手动粘贴
+        // 方法3: 直接修改 innerHTML（最后手段）
+        try {
+            // 将内容转换为 HTML（保留换行）
+            const htmlContent = content
+                .split('\n')
+                .map(line => `<div>${line || '<br>'}</div>`)
+                .join('');
+            
+            editableDiv.innerHTML = htmlContent;
+            editableDiv.dispatchEvent(new Event('input', { bubbles: true }));
+            
+            await new Promise(resolve => setTimeout(resolve, 200));
+            const afterHtml = editableDiv.textContent || '';
+            if (afterHtml.length > content.length / 3) {
+                showNotification('✓ 内容已填入，请检查后点击发布');
+                return;
+            }
+        } catch (e) {
+            console.log('innerHTML method failed:', e);
+        }
+
+        // 所有方法都失败，提示手动粘贴
         showNotification('📋 内容已复制！请按 Cmd+V 粘贴');
         
     } catch (error) {

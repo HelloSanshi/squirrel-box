@@ -7,6 +7,7 @@
 - **一键发布 Twitter 识别修复**：扩展 Twitter/X 页面匹配规则，新增 `www.`、`mobile.` 等 URL 变体支持；添加 `tabs` 权限以支持通过 URL 查询标签页
 - **一键发布内容重复修复**：重写发布逻辑，改用剪贴板粘贴方式，修复内容被重复插入且截断的问题
 - **一键发布剪贴板权限修复**：将剪贴板写入操作移至 SidePanel 端执行（有焦点），content script 只负责打开编辑框和尝试粘贴
+- **一键发布自动填充优化**：新增多种填充方式（execCommand insertText → ClipboardEvent → innerHTML），提高自动填充成功率
 
 ### 文档
 - **Cursor Rules 设置文档**：创建 `docs/cursor-rules-setup.md`，提供项目初始化时配置 Cursor 规则的完整指南
