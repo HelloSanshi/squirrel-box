@@ -32,6 +32,7 @@ export interface Settings {
     customSummaryPrompt?: string; // 自定义摘要提示词
     enableImageRecognition?: boolean; // 图片识别开关
     enableCommentCollection?: boolean; // 收集评论区内容开关
+    showFloatingButton?: boolean; // 是否显示悬浮按钮（默认 true）
 }
 
 export interface CreationRequest {

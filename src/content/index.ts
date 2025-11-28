@@ -7,6 +7,7 @@ console.log('松鼠收藏夹: Content script loaded');
 
 let readingMode = false;
 let currentTweet: Element | null = null;
+let floatingBtnElement: HTMLElement | null = null; // 悬浮按钮元素引用
 
 // Load reading mode state
 storage.getReadingMode().then((mode) => {
@@ -23,6 +24,16 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     if (message.type === 'PUBLISH_TWEET') {
         publishTweetToTwitter(message.content);
+        sendResponse({ success: true });
+    }
+
+    // 切换悬浮按钮显示/隐藏
+    if (message.type === 'TOGGLE_FLOATING_BUTTON') {
+        const show = message.show;
+        if (floatingBtnElement) {
+            floatingBtnElement.style.display = show ? 'flex' : 'none';
+        }
+        console.log('悬浮按钮显示状态:', show ? '显示' : '隐藏');
         sendResponse({ success: true });
     }
 
@@ -162,6 +173,7 @@ function createFloatingButton() {
     };
 
     document.body.appendChild(floatingBtn);
+    floatingBtnElement = floatingBtn; // 保存引用
     console.log('Floating button created');
 }
 
@@ -265,8 +277,9 @@ async function collectTweet(tweetElement: Element) {
 
         // 收集评论区内容（如果启用）
         let commentData: CommentData | null = null;
+        console.log('评论区收集设置:', settings?.enableCommentCollection ? '已开启' : '未开启');
         if (settings?.enableCommentCollection) {
-            console.log('评论区收集已启用，开始收集评论...');
+            console.log('开始收集评论区内容...');
             commentData = collectComments(tweetElement, authorHandle);
             console.log('评论区收集完成:', {
                 authorThread: commentData.authorThread.slice(0, 50),
@@ -523,10 +536,22 @@ async function publishTweetToTwitter(content: string) {
 }
 
 // Initialize
-function init() {
+async function init() {
     console.log('Initializing 松鼠收藏夹...');
+    
+    // 检查悬浮按钮设置
+    const settings = await storage.getSettings();
+    const showButton = settings?.showFloatingButton !== false; // 默认显示
+    
     createFloatingButton();
     trackCurrentTweet();
+    
+    // 根据设置显示/隐藏悬浮按钮
+    if (floatingBtnElement && !showButton) {
+        floatingBtnElement.style.display = 'none';
+        console.log('悬浮按钮已根据设置隐藏');
+    }
+    
     console.log('松鼠收藏夹 initialized!');
 }
 

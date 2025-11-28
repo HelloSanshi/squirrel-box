@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BookOpen, PenTool, Trash2, Copy, Sparkles, Loader2, ExternalLink, Send, Tag, Settings as SettingsIcon, Download } from 'lucide-react';
+import { BookOpen, PenTool, Trash2, Copy, Sparkles, Loader2, ExternalLink, Send, Tag, Settings as SettingsIcon, Download, MousePointer2 } from 'lucide-react';
 import { storage } from '../lib/storage';
 import { Tweet, Settings, CreationRequest } from '../lib/types';
 import { generateTweet } from '../lib/ai';
@@ -136,6 +136,31 @@ export default function SidePanel() {
         setTimeout(() => notification.remove(), 2000);
     }
 
+    // 切换悬浮按钮显示
+    async function toggleFloatingButton() {
+        const newValue = settings?.showFloatingButton === false;
+        const newSettings = { ...settings, showFloatingButton: newValue } as Settings;
+        setSettings(newSettings);
+        await storage.saveSettings(newSettings);
+        
+        // 通知所有标签页更新悬浮按钮状态
+        const tabs = await chrome.tabs.query({});
+        for (const tab of tabs) {
+            if (tab.id) {
+                try {
+                    await chrome.tabs.sendMessage(tab.id, {
+                        type: 'TOGGLE_FLOATING_BUTTON',
+                        show: newValue,
+                    });
+                } catch {
+                    // 忽略没有内容脚本的标签页
+                }
+            }
+        }
+        
+        showNotification(newValue ? '悬浮按钮已开启' : '悬浮按钮已关闭');
+    }
+
     function getCategoryColor(category?: string) {
         const colors: Record<string, string> = {
             '技术': 'bg-purple-500/20 text-purple-400',
@@ -243,6 +268,19 @@ export default function SidePanel() {
                     </h1>
                 </div>
                 <div className="flex items-center gap-2">
+                    {/* 悬浮按钮开关 */}
+                    <button
+                        onClick={toggleFloatingButton}
+                        className={cn(
+                            'p-2 rounded-lg transition-colors',
+                            settings?.showFloatingButton !== false
+                                ? 'text-blue-400 hover:text-blue-300 hover:bg-blue-500/10'
+                                : 'text-gray-600 hover:text-gray-400 hover:bg-[#1a1a1a]'
+                        )}
+                        title={settings?.showFloatingButton !== false ? '悬浮按钮已开启' : '悬浮按钮已关闭'}
+                    >
+                        <MousePointer2 className="w-5 h-5" />
+                    </button>
                     {/* Export Dropdown */}
                     {tweets.length > 0 && (
                         <div className="relative group">
