@@ -502,30 +502,96 @@ async function publishTweetToTwitter(content: string) {
         if (composeButton) {
             composeButton.click();
             // Wait for compose box to appear
-            await new Promise(resolve => setTimeout(resolve, 500));
+            await new Promise(resolve => setTimeout(resolve, 800));
         }
 
-        // Find the compose text area
+        // Find the compose text area - Twitter 使用 contenteditable div
         const textArea = document.querySelector('[data-testid="tweetTextarea_0"]') as HTMLElement;
 
         if (!textArea) {
             throw new Error('无法找到发推文本框，请确保已打开 Twitter/X 页面');
         }
 
-        // Set the content
-        textArea.focus();
-        document.execCommand('insertText', false, content);
-
-        // Alternative method if execCommand doesn't work
-        if (!textArea.textContent) {
-            const dataTransfer = new DataTransfer();
-            dataTransfer.setData('text/plain', content);
-            const event = new ClipboardEvent('paste', {
-                clipboardData: dataTransfer,
-                bubbles: true,
-                cancelable: true
+        // 方法1: 使用剪贴板 API 写入内容，然后模拟粘贴
+        try {
+            await navigator.clipboard.writeText(content);
+            textArea.focus();
+            
+            // 模拟 Ctrl+V / Cmd+V 粘贴
+            const pasteEvent = new KeyboardEvent('keydown', {
+                key: 'v',
+                code: 'KeyV',
+                ctrlKey: true,
+                metaKey: true,
+                bubbles: true
             });
-            textArea.dispatchEvent(event);
+            textArea.dispatchEvent(pasteEvent);
+            
+            // 等待一下再检查
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // 如果键盘事件没生效，尝试 ClipboardEvent
+            if (!textArea.textContent || textArea.textContent.length < content.length / 2) {
+                const dataTransfer = new DataTransfer();
+                dataTransfer.setData('text/plain', content);
+                const clipboardEvent = new ClipboardEvent('paste', {
+                    clipboardData: dataTransfer,
+                    bubbles: true,
+                    cancelable: true
+                });
+                textArea.dispatchEvent(clipboardEvent);
+            }
+        } catch (clipboardError) {
+            console.log('剪贴板方法失败，尝试其他方法:', clipboardError);
+        }
+
+        // 方法2: 如果上面方法都失败，使用 InputEvent
+        await new Promise(resolve => setTimeout(resolve, 100));
+        if (!textArea.textContent || textArea.textContent.length < content.length / 2) {
+            textArea.focus();
+            
+            // 使用 InputEvent 逐行插入
+            const lines = content.split('\n');
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                if (line) {
+                    const inputEvent = new InputEvent('beforeinput', {
+                        inputType: 'insertText',
+                        data: line,
+                        bubbles: true,
+                        cancelable: true
+                    });
+                    textArea.dispatchEvent(inputEvent);
+                }
+                
+                // 插入换行（除了最后一行）
+                if (i < lines.length - 1) {
+                    const enterEvent = new InputEvent('beforeinput', {
+                        inputType: 'insertParagraph',
+                        bubbles: true,
+                        cancelable: true
+                    });
+                    textArea.dispatchEvent(enterEvent);
+                }
+            }
+        }
+
+        // 方法3: 最后的备选方案 - 直接设置内容并触发 input 事件
+        await new Promise(resolve => setTimeout(resolve, 100));
+        if (!textArea.textContent || textArea.textContent.length < content.length / 2) {
+            // 找到编辑器内部的可编辑元素
+            const editor = textArea.querySelector('[contenteditable="true"]') || textArea;
+            
+            // 将内容转换为 HTML（保留换行）
+            const htmlContent = content
+                .split('\n')
+                .map(line => `<span data-text="true">${line || '<br>'}</span>`)
+                .join('<br>');
+            
+            editor.innerHTML = htmlContent;
+            
+            // 触发 input 事件让 Twitter 知道内容变化
+            editor.dispatchEvent(new Event('input', { bubbles: true }));
         }
 
         showNotification('✓ 内容已填入，请检查后点击发布');
