@@ -448,8 +448,34 @@ export default function SidePanel() {
             <div className="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-700">
                 {activeTab === 'collection' && (
                     <div className="space-y-4">
-                        {/* Filters */}
-                        {tweets.length > 0 && (
+                        {/* 选择模式顶栏 */}
+                        {selectMode && (
+                            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-3 flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <Library className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                    <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                                        选择参考内容
+                                    </span>
+                                    {selectedTweets.size > 0 && (
+                                        <span className="bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full">
+                                            {selectedTweets.size}
+                                        </span>
+                                    )}
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        setSelectMode(false);
+                                        setActiveTab('create');
+                                    }}
+                                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium"
+                                >
+                                    取消
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Filters - 非选择模式下显示 */}
+                        {tweets.length > 0 && !selectMode && (
                             <div className="flex gap-2 items-center sticky top-0 z-0"> 
                                 {/* Platform Filter */}
                                 {platforms.length > 0 && (
@@ -500,20 +526,35 @@ export default function SidePanel() {
                                 <p className="text-xs mt-1.5 text-zinc-400 dark:text-zinc-500">在 Twitter / 小红书上点击悬浮按钮收藏</p>
                             </div>
                         ) : (
-                            <div className="grid gap-4">
+                            <div className={cn("grid gap-4", selectMode && "pb-20")}>
                                 {filteredTweets.map((tweet) => (
                                     <div
                                         key={tweet.id}
                                         className={cn(
-                                            'group bg-white dark:bg-zinc-900 rounded-xl p-5 transition-all cursor-pointer border shadow-sm hover:shadow-md relative',
-                                            selectedTweets.has(tweet.id)
+                                            'group bg-white dark:bg-zinc-900 rounded-xl p-5 transition-all border shadow-sm hover:shadow-md relative',
+                                            selectMode && 'cursor-pointer',
+                                            selectMode && selectedTweets.has(tweet.id)
                                                 ? 'border-blue-500 ring-1 ring-blue-500 bg-blue-50/50 dark:bg-blue-900/10'
                                                 : 'border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700'
                                         )}
-                                        onClick={() => toggleSelect(tweet.id)}
+                                        onClick={() => selectMode && toggleSelect(tweet.id)}
                                     >
-                                        {/* Selected Indicator Bar */}
-                                        {selectedTweets.has(tweet.id) && (
+                                        {/* 选择模式下的选中勾选 */}
+                                        {selectMode && (
+                                            <div className={cn(
+                                                "absolute top-3 right-3 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all",
+                                                selectedTweets.has(tweet.id)
+                                                    ? "bg-blue-600 border-blue-600"
+                                                    : "border-zinc-300 dark:border-zinc-600"
+                                            )}>
+                                                {selectedTweets.has(tweet.id) && (
+                                                    <Check className="w-3 h-3 text-white" />
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* Selected Indicator Bar - 非选择模式下隐藏 */}
+                                        {!selectMode && selectedTweets.has(tweet.id) && (
                                             <div className="absolute left-0 top-3 bottom-3 w-1 bg-blue-500 rounded-r-full" />
                                         )}
 
@@ -633,39 +674,110 @@ export default function SidePanel() {
                                 ))}
                             </div>
                         )}
+
+                        {/* 选择模式 - 底部确认按钮 */}
+                        {selectMode && (
+                            <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md border-t border-zinc-200 dark:border-zinc-800 shadow-lg">
+                                <button
+                                    onClick={() => {
+                                        setSelectMode(false);
+                                        setActiveTab('create');
+                                    }}
+                                    className={cn(
+                                        "w-full flex items-center justify-center gap-2 py-3 rounded-xl font-medium transition-all text-sm",
+                                        selectedTweets.size > 0
+                                            ? "bg-blue-600 text-white hover:bg-blue-700 shadow-sm hover:shadow"
+                                            : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400"
+                                    )}
+                                >
+                                    <Check className="w-4 h-4" />
+                                    {selectedTweets.size > 0 
+                                        ? `确认选择 (${selectedTweets.size})` 
+                                        : '完成选择'
+                                    }
+                                </button>
+                            </div>
+                        )}
                     </div>
                 )}
 
                 {activeTab === 'create' && (
                     <div className="space-y-4">
-                        {/* Selected References */}
-                        {selectedTweets.size > 0 && (
-                            <div className="bg-white dark:bg-zinc-900 rounded-xl p-4 border border-zinc-200 dark:border-zinc-800 shadow-sm">
-                                <div className="flex items-center justify-between mb-2">
-                                    <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                                        已选择 {selectedTweets.size} 条参考内容
-                                    </h3>
-                                    <button
-                                        onClick={() => setSelectedTweets(new Set())}
-                                        className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
-                                    >
-                                        清空
-                                    </button>
-                                </div>
-                                <div className="flex -space-x-2 overflow-hidden py-1">
-                                    {Array.from(selectedTweets).slice(0, 5).map((id, i) => (
-                                        <div key={id} className="w-6 h-6 rounded-full bg-zinc-200 dark:bg-zinc-700 border-2 border-white dark:border-zinc-900 flex items-center justify-center text-[10px] text-zinc-500">
-                                            {i + 1}
-                                        </div>
-                                    ))}
-                                    {selectedTweets.size > 5 && (
-                                        <div className="w-6 h-6 rounded-full bg-zinc-100 dark:bg-zinc-800 border-2 border-white dark:border-zinc-900 flex items-center justify-center text-[10px] text-zinc-500">
-                                            +{selectedTweets.size - 5}
-                                        </div>
+                        {/* 创作参考区域 - 始终显示 */}
+                        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
+                            <div className="p-4">
+                                <div className="flex items-center justify-between mb-3">
+                                    <div className="flex items-center gap-2">
+                                        <Library className="w-4 h-4 text-zinc-400" />
+                                        <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                                            创作参考
+                                        </h3>
+                                    </div>
+                                    {selectedTweets.size > 0 && (
+                                        <button
+                                            onClick={() => setSelectedTweets(new Set())}
+                                            className="text-xs text-zinc-400 hover:text-red-500 transition-colors"
+                                        >
+                                            清空
+                                        </button>
                                     )}
                                 </div>
+
+                                {selectedTweets.size === 0 ? (
+                                    // 空状态 - 引导用户添加参考
+                                    <button
+                                        onClick={() => {
+                                            setSelectMode(true);
+                                            setActiveTab('collection');
+                                        }}
+                                        className="w-full flex items-center justify-center gap-2 py-4 border-2 border-dashed border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-400 hover:text-blue-500 hover:border-blue-400 dark:hover:border-blue-500 transition-all group"
+                                    >
+                                        <Plus className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                                        <span className="text-sm">从收藏中选择参考内容</span>
+                                    </button>
+                                ) : (
+                                    // 已选择的参考列表
+                                    <div className="space-y-2">
+                                        {Array.from(selectedTweets).map((id) => {
+                                            const tweet = tweets.find(t => t.id === id);
+                                            if (!tweet) return null;
+                                            return (
+                                                <div key={id} className="flex items-start gap-2 p-2 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg group">
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300 truncate">
+                                                            {tweet.author}
+                                                        </p>
+                                                        <p className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-1">
+                                                            {tweet.summary || tweet.content.slice(0, 50)}
+                                                        </p>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => {
+                                                            const newSelected = new Set(selectedTweets);
+                                                            newSelected.delete(id);
+                                                            setSelectedTweets(newSelected);
+                                                        }}
+                                                        className="p-1 text-zinc-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                                                    >
+                                                        <X className="w-3 h-3" />
+                                                    </button>
+                                                </div>
+                                            );
+                                        })}
+                                        <button
+                                            onClick={() => {
+                                                setSelectMode(true);
+                                                setActiveTab('collection');
+                                            }}
+                                            className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg transition-colors"
+                                        >
+                                            <Plus className="w-3 h-3" />
+                                            添加更多
+                                        </button>
+                                    </div>
+                                )}
                             </div>
-                        )}
+                        </div>
 
                         {/* Creation Form */}
                         <div className="bg-white dark:bg-zinc-900 rounded-xl p-5 space-y-5 border border-zinc-200 dark:border-zinc-800 shadow-sm">
