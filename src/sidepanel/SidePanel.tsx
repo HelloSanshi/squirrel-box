@@ -531,7 +531,7 @@ export default function SidePanel() {
                                     <div
                                         key={tweet.id}
                                         className={cn(
-                                            'group bg-white dark:bg-zinc-900 rounded-xl p-5 transition-all border shadow-sm hover:shadow-md relative',
+                                            'group bg-white dark:bg-zinc-900 rounded-xl p-5 transition-all border shadow-sm hover:shadow-md relative min-w-0',
                                             'border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700',
                                             selectMode && 'cursor-pointer',
                                             selectMode && selectedTweets.has(tweet.id) && 'border-blue-500 ring-1 ring-blue-500 bg-blue-50/50 dark:bg-blue-900/10'
@@ -622,7 +622,7 @@ export default function SidePanel() {
                                             {tweet.summary ? (
                                                 <div className="relative">
                                                     <div className={cn(
-                                                        "prose prose-sm dark:prose-invert prose-zinc max-w-none",
+                                                        "prose prose-sm dark:prose-invert prose-zinc max-w-none break-words",
                                                         "prose-p:my-1.5 prose-p:leading-relaxed",
                                                         "prose-ul:my-1.5 prose-ul:pl-4 prose-li:my-0.5",
                                                         "prose-ol:my-1.5 prose-ol:pl-4",
@@ -931,7 +931,7 @@ export default function SidePanel() {
                                                 </button>
                                             </div>
                                         </div>
-                                        <p className="text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap text-sm leading-relaxed">
+                                        <p className="text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap text-sm leading-relaxed break-words">
                                             {version}
                                         </p>
                                     </div>
