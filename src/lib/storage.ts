@@ -53,6 +53,7 @@ export const storage = {
                     try {
                         const response = await chrome.runtime.sendMessage({
                             type: 'SYNC_TO_FEISHU',
+                            settings: settings, // 必须传递 settings 参数
                             tweets: [tweets[index]], // 只同步当前更新的这条
                         });
                         console.log('[Storage] 自动同步响应:', response);
