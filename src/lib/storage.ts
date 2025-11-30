@@ -19,6 +19,24 @@ export const storage = {
         const tweets = await this.getTweets();
         tweets.unshift(tweet);
         await chrome.storage.local.set({ [STORAGE_KEYS.TWEETS]: tweets });
+
+        // 自动同步到飞书 (通过 background service worker)
+        try {
+            const settings = await this.getSettings();
+            if (settings?.feishu?.autoSync && settings.feishu.appId && settings.feishu.appSecret && settings.feishu.docToken) {
+                // 通过 runtime.sendMessage 发送到 background
+                chrome.runtime.sendMessage({
+                    type: 'FEISHU_SYNC',
+                    settings: settings,
+                    tweets: [tweet],
+                }).catch((error) => {
+                    console.error('自动同步到飞书失败:', error);
+                });
+            }
+        } catch (error) {
+            console.error('自动同步到飞书失败:', error);
+            // 不阻塞收藏流程
+        }
     },
 
     async updateTweet(tweetId: string, updates: Partial<Tweet>): Promise<void> {

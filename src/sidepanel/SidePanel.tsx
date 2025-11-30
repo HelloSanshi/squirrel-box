@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { 
-    BookOpen, PenTool, Trash2, Copy, Sparkles, Loader2, ExternalLink, 
-    Send, Settings as SettingsIcon, Download, MousePointer2, 
+import {
+    BookOpen, PenTool, Trash2, Copy, Sparkles, Loader2, ExternalLink,
+    Send, Settings as SettingsIcon, Download, MousePointer2,
     AlertTriangle, Sun, Moon, Monitor, ChevronDown, Filter,
-    Plus, Check, X, Library
+    Plus, Check, X, Library, Cloud, CloudOff
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { storage, Theme } from '../lib/storage';
@@ -39,6 +39,9 @@ export default function SidePanel() {
 
     // 选择参考模式状态
     const [selectMode, setSelectMode] = useState(false);
+
+    // 飞书同步状态
+    const [syncing, setSyncing] = useState(false);
 
     useEffect(() => {
         loadData();
@@ -221,6 +224,39 @@ export default function SidePanel() {
         setTimeout(() => notification.remove(), 2000);
     }
 
+    // 手动同步到飞书
+    async function handleSyncToFeishu() {
+        if (!settings?.feishu?.appId || !settings?.feishu?.appSecret || !settings?.feishu?.docToken) {
+            showNotification('请先在设置中配置飞书同步');
+            return;
+        }
+
+        if (filteredTweets.length === 0) {
+            showNotification('没有可同步的内容');
+            return;
+        }
+
+        setSyncing(true);
+        try {
+            // 通过 background service worker 调用,避免 CORS 问题
+            const response = await chrome.runtime.sendMessage({
+                type: 'FEISHU_SYNC',
+                settings: settings,
+                tweets: filteredTweets,
+            });
+
+            if (response.success) {
+                showNotification(`✓ 已同步 ${filteredTweets.length} 条内容到飞书`);
+            } else {
+                showNotification('✗ 同步失败: ' + (response.error || '未知错误'));
+            }
+        } catch (error) {
+            showNotification('✗ 同步失败: ' + (error instanceof Error ? error.message : '未知错误'));
+        } finally {
+            setSyncing(false);
+        }
+    }
+
     // 切换悬浮按钮显示
     async function toggleFloatingButton() {
         const newValue = settings?.showFloatingButton === false;
@@ -396,6 +432,31 @@ export default function SidePanel() {
                             <MousePointer2 className="w-4 h-4" />
                         </button>
 
+                        {/* Feishu Sync Button */}
+                        {settings?.feishu?.docToken && (
+                            <button
+                                onClick={handleSyncToFeishu}
+                                disabled={syncing}
+                                className={cn(
+                                    "p-2 rounded-md transition-colors",
+                                    syncing
+                                        ? "text-zinc-400 dark:text-zinc-600 cursor-not-allowed"
+                                        : settings?.feishu?.autoSync
+                                            ? "text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-500/10"
+                                            : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                                )}
+                                title={syncing ? '同步中...' : settings?.feishu?.autoSync ? '飞书自动同步已开启' : '同步到飞书'}
+                            >
+                                {syncing ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : settings?.feishu?.autoSync ? (
+                                    <Cloud className="w-4 h-4" />
+                                ) : (
+                                    <CloudOff className="w-4 h-4" />
+                                )}
+                            </button>
+                        )}
+
                         {/* Settings */}
                         <button
                             onClick={() => chrome.runtime.openOptionsPage()}
@@ -404,7 +465,7 @@ export default function SidePanel() {
                         >
                             <SettingsIcon className="w-4 h-4" />
                         </button>
-                        
+
                          {/* Export Dropdown */}
                          {tweets.length > 0 && (
                             <div className="relative group ml-1">

@@ -13,6 +13,9 @@
         "sidePanel",
         "tabs"
     ],
+    "host_permissions": [
+        "https://open.feishu.cn/*"
+    ],
     "background": {
         "service_worker": "src/background/index.ts",
         "type": "module"

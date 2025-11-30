@@ -40,6 +40,14 @@ export interface Settings {
     enableImageRecognition?: boolean; // 图片识别开关
     enableCommentCollection?: boolean; // 收集评论区内容开关
     showFloatingButton?: boolean; // 是否显示悬浮按钮（默认 true）
+    // 飞书同步配置
+    feishu?: {
+        appId?: string; // 飞书机器人 App ID
+        appSecret?: string; // 飞书机器人 App Secret
+        docToken?: string; // 文档 Token (从文档链接解析)
+        docType?: 'doc' | 'docx' | 'sheet' | 'wiki'; // 文档类型
+        autoSync?: boolean; // 是否自动同步
+    };
 }
 
 export interface CreationRequest {
