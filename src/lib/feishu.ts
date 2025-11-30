@@ -116,6 +116,199 @@ function tweetToMarkdown(tweet: Tweet): string {
 }
 
 /**
+ * 将 Tweet 转换为飞书文档块结构（富文本格式）
+ */
+function tweetToFeishuBlocks(tweet: Tweet): any[] {
+    const blocks: any[] = [];
+
+    // 标题（加粗 + 大字体）
+    blocks.push({
+        block_type: 2, // 文本块
+        text: {
+            elements: [
+                {
+                    text_run: {
+                        content: `${tweet.author}${tweet.platform ? ` · ${tweet.platform === 'twitter' ? 'Twitter' : '小红书'}` : ''}`,
+                        text_element_style: {
+                            bold: true,
+                        },
+                    },
+                },
+            ],
+            style: {
+                headingLevel: 3, // H3 标题
+            },
+        },
+    });
+
+    // 分类和时间
+    const metaInfo: string[] = [];
+    if (tweet.category) {
+        metaInfo.push(`分类: ${tweet.category}`);
+    }
+    metaInfo.push(`时间: ${new Date(tweet.collectTime).toLocaleString('zh-CN')}`);
+
+    blocks.push({
+        block_type: 2,
+        text: {
+            elements: [
+                {
+                    text_run: {
+                        content: metaInfo.join(' | '),
+                        text_element_style: {
+                            italic: true,
+                        },
+                    },
+                },
+            ],
+        },
+    });
+
+    // 摘要
+    if (tweet.summary) {
+        blocks.push({
+            block_type: 2,
+            text: {
+                elements: [
+                    {
+                        text_run: {
+                            content: '摘要:',
+                            text_element_style: {
+                                bold: true,
+                            },
+                        },
+                    },
+                ],
+            },
+        });
+
+        blocks.push({
+            block_type: 2,
+            text: {
+                elements: [
+                    {
+                        text_run: {
+                            content: tweet.summary,
+                        },
+                    },
+                ],
+            },
+        });
+    }
+
+    // 原文
+    blocks.push({
+        block_type: 2,
+        text: {
+            elements: [
+                {
+                    text_run: {
+                        content: '原文:',
+                        text_element_style: {
+                            bold: true,
+                        },
+                    },
+                },
+            ],
+        },
+    });
+
+    blocks.push({
+        block_type: 2,
+        text: {
+            elements: [
+                {
+                    text_run: {
+                        content: tweet.content,
+                    },
+                },
+            ],
+        },
+    });
+
+    // 关键词
+    if (tweet.keywords.length > 0) {
+        blocks.push({
+            block_type: 2,
+            text: {
+                elements: [
+                    {
+                        text_run: {
+                            content: `关键词: ${tweet.keywords.map(k => `#${k}`).join(' ')}`,
+                            text_element_style: {
+                                italic: true,
+                            },
+                        },
+                    },
+                ],
+            },
+        });
+    }
+
+    // 原文链接
+    if (tweet.tweetUrl) {
+        blocks.push({
+            block_type: 2,
+            text: {
+                elements: [
+                    {
+                        text_run: {
+                            content: '原文链接: ',
+                            text_element_style: {
+                                bold: true,
+                            },
+                        },
+                    },
+                    {
+                        text_run: {
+                            content: tweet.tweetUrl,
+                            text_element_style: {
+                                link: {
+                                    url: tweet.tweetUrl,
+                                },
+                            },
+                        },
+                    },
+                ],
+            },
+        });
+    }
+
+    // 分隔线
+    blocks.push({
+        block_type: 2,
+        text: {
+            elements: [
+                {
+                    text_run: {
+                        content: '────────────────────',
+                        text_element_style: {
+                            italic: true,
+                        },
+                    },
+                },
+            ],
+        },
+    });
+
+    // 空行
+    blocks.push({
+        block_type: 2,
+        text: {
+            elements: [
+                {
+                    text_run: {
+                        content: ' ',
+                    },
+                },
+            ],
+        },
+    });
+
+    return blocks;
+}
+
+/**
  * 同步内容到飞书文档
  */
 export async function syncToFeishu(settings: Settings, tweets: Tweet[]): Promise<void> {
@@ -147,10 +340,7 @@ export async function syncToFeishu(settings: Settings, tweets: Tweet[]): Promise
  */
 async function syncToDocx(accessToken: string, docToken: string, tweets: Tweet[]): Promise<void> {
     console.log('[Feishu] 开始同步到 docx 文档:', docToken);
-
-    // 生成 Markdown 内容
-    const content = tweets.map(tweet => tweetToMarkdown(tweet)).join('\n');
-    console.log('[Feishu] 生成内容长度:', content.length);
+    console.log('[Feishu] 同步内容数量:', tweets.length);
 
     // 首先获取文档信息，找到根节点 block_id
     const docResponse = await fetch(`https://open.feishu.cn/open-apis/docx/v1/documents/${docToken}`, {
@@ -174,53 +364,56 @@ async function syncToDocx(accessToken: string, docToken: string, tweets: Tweet[]
 
     console.log('[Feishu] 文档 ID:', pageId);
 
-    // 追加内容到文档 - 需要先追加到文档根节点
-    const payload = {
-        children: [
-            {
-                block_type: 2, // 2 = 文本块
-                text: {
-                    elements: [
-                        {
-                            text_run: {
-                                content: content,
-                            },
-                        },
-                    ],
-                },
+    // 将所有 tweets 转换为飞书块结构
+    const allBlocks = tweets.flatMap(tweet => tweetToFeishuBlocks(tweet));
+    console.log('[Feishu] 生成块数量:', allBlocks.length);
+
+    // 飞书 API 限制每次最多添加 50 个块，需要分批处理
+    const batchSize = 50;
+    for (let i = 0; i < allBlocks.length; i += batchSize) {
+        const batch = allBlocks.slice(i, i + batchSize);
+        console.log(`[Feishu] 处理第 ${Math.floor(i / batchSize) + 1} 批，块数: ${batch.length}`);
+
+        const payload = {
+            children: batch,
+            index: 0, // 插入到顶部（最新的在上面）
+        };
+
+        const response = await fetch(`https://open.feishu.cn/open-apis/docx/v1/documents/${docToken}/blocks/${pageId}/children`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json',
             },
-        ],
-        index: -1, // 追加到末尾
-    };
+            body: JSON.stringify(payload),
+        });
 
-    console.log('[Feishu] 准备追加内容，payload:', JSON.stringify(payload).substring(0, 200));
+        console.log('[Feishu] API 响应状态:', response.status, response.statusText);
 
-    const response = await fetch(`https://open.feishu.cn/open-apis/docx/v1/documents/${docToken}/blocks/${pageId}/children`, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-    });
+        const responseText = await response.text();
 
-    console.log('[Feishu] API 响应状态:', response.status, response.statusText);
+        let data;
+        try {
+            data = JSON.parse(responseText);
+        } catch {
+            console.error('[Feishu] API 响应内容:', responseText);
+            throw new Error(`API 返回非 JSON 格式: ${responseText}`);
+        }
 
-    const responseText = await response.text();
-    console.log('[Feishu] API 响应内容:', responseText);
+        if (data.code !== 0) {
+            console.error('[Feishu] API 错误响应:', data);
+            throw new Error(`同步到飞书文档失败: ${data.msg}`);
+        }
 
-    let data;
-    try {
-        data = JSON.parse(responseText);
-    } catch (e) {
-        throw new Error(`API 返回非 JSON 格式: ${responseText}`);
+        console.log(`[Feishu] 第 ${Math.floor(i / batchSize) + 1} 批同步成功`);
+
+        // 避免请求过快，添加小延迟
+        if (i + batchSize < allBlocks.length) {
+            await new Promise(resolve => setTimeout(resolve, 200));
+        }
     }
 
-    if (data.code !== 0) {
-        throw new Error(`同步到飞书文档失败: ${data.msg}`);
-    }
-
-    console.log('[Feishu] Docx 同步成功');
+    console.log('[Feishu] Docx 同步完成');
 }
 
 /**
