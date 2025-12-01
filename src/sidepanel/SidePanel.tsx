@@ -48,6 +48,8 @@ export default function SidePanel() {
     const [inspirationItems, setInspirationItems] = useState<InspirationItem[]>([]);
     const [referenceSource, setReferenceSource] = useState<'collection' | 'inspiration'>('collection');
     const [selectedInspirationItems, setSelectedInspirationItems] = useState<Set<string>>(new Set());
+    // 采集日志（最近的采集记录）
+    const [captureLog, setCaptureLog] = useState<{ text: string; time: number }[]>([]);
 
     useEffect(() => {
         loadData();
@@ -59,7 +61,23 @@ export default function SidePanel() {
             }
             // 监听灵感数据变化（session storage）
             if (areaName === 'session' && changes.inspirationItems) {
-                setInspirationItems((changes.inspirationItems.newValue as InspirationItem[]) || []);
+                const newItems = (changes.inspirationItems.newValue as InspirationItem[]) || [];
+                const oldItems = (changes.inspirationItems.oldValue as InspirationItem[]) || [];
+                setInspirationItems(newItems);
+                
+                // 检测新增的内容，添加到采集日志
+                if (newItems.length > oldItems.length) {
+                    const newItem = newItems[0]; // 新内容在最前面
+                    if (newItem) {
+                        const logText = newItem.isDetail 
+                            ? `📄 详情：${newItem.title || newItem.content?.slice(0, 30) || '...'}`
+                            : `📋 列表：${newItem.title || newItem.summary?.slice(0, 30) || '...'}`;
+                        setCaptureLog(prev => [
+                            { text: logText, time: Date.now() },
+                            ...prev.slice(0, 4) // 最多保留 5 条
+                        ]);
+                    }
+                }
             }
             if (areaName === 'session' && changes.inspirationMode) {
                 setInspirationMode(changes.inspirationMode.newValue as boolean);
@@ -497,71 +515,89 @@ export default function SidePanel() {
                     </div>
                     <div className="flex items-center gap-1">
                         {/* Theme Toggle */}
-                        <button
-                            onClick={cycleTheme}
-                            className="p-2 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors"
-                            title={`切换主题 (${theme === 'system' ? '跟随系统' : theme === 'dark' ? '深色' : '浅色'})`}
-                        >
-                            {getThemeIcon()}
-                        </button>
+                        <div className="relative group">
+                            <button
+                                onClick={cycleTheme}
+                                className="p-2 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors"
+                            >
+                                {getThemeIcon()}
+                            </button>
+                            <span className="absolute top-full left-1/2 -translate-x-1/2 mt-1.5 px-2 py-1 text-[10px] font-medium text-white bg-zinc-800 dark:bg-zinc-700 rounded shadow-lg whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                                {theme === 'system' ? '跟随系统' : theme === 'dark' ? '深色模式' : '浅色模式'}
+                            </span>
+                        </div>
 
                         {/* 悬浮按钮开关 */}
-                        <button
-                            onClick={toggleFloatingButton}
-                            className={cn(
-                                'p-2 rounded-md transition-colors',
-                                settings?.showFloatingButton !== false
-                                    ? 'text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10'
-                                    : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800'
-                            )}
-                            title={settings?.showFloatingButton !== false ? '悬浮按钮已开启' : '悬浮按钮已关闭'}
-                        >
-                            <MousePointer2 className="w-4 h-4" />
-                        </button>
+                        <div className="relative group">
+                            <button
+                                onClick={toggleFloatingButton}
+                                className={cn(
+                                    'p-2 rounded-md transition-colors',
+                                    settings?.showFloatingButton !== false
+                                        ? 'text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10'
+                                        : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                                )}
+                            >
+                                <MousePointer2 className="w-4 h-4" />
+                            </button>
+                            <span className="absolute top-full left-1/2 -translate-x-1/2 mt-1.5 px-2 py-1 text-[10px] font-medium text-white bg-zinc-800 dark:bg-zinc-700 rounded shadow-lg whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                                悬浮按钮 {settings?.showFloatingButton !== false ? '已开启' : '已关闭'}
+                            </span>
+                        </div>
 
                         {/* Feishu Sync Button */}
                         {settings?.feishu?.docToken && (
-                            <button
-                                onClick={handleSyncToFeishu}
-                                disabled={syncing}
-                                className={cn(
-                                    "p-2 rounded-md transition-colors",
-                                    syncing
-                                        ? "text-zinc-400 dark:text-zinc-600 cursor-not-allowed"
-                                        : settings?.feishu?.autoSync
-                                            ? "text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-500/10"
-                                            : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                                )}
-                                title={syncing ? '同步中...' : settings?.feishu?.autoSync ? '飞书自动同步已开启' : '同步到飞书'}
-                            >
-                                {syncing ? (
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                ) : settings?.feishu?.autoSync ? (
-                                    <Cloud className="w-4 h-4" />
-                                ) : (
-                                    <CloudOff className="w-4 h-4" />
-                                )}
-                            </button>
+                            <div className="relative group">
+                                <button
+                                    onClick={handleSyncToFeishu}
+                                    disabled={syncing}
+                                    className={cn(
+                                        "p-2 rounded-md transition-colors",
+                                        syncing
+                                            ? "text-zinc-400 dark:text-zinc-600 cursor-not-allowed"
+                                            : settings?.feishu?.autoSync
+                                                ? "text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-500/10"
+                                                : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                                    )}
+                                >
+                                    {syncing ? (
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : settings?.feishu?.autoSync ? (
+                                        <Cloud className="w-4 h-4" />
+                                    ) : (
+                                        <CloudOff className="w-4 h-4" />
+                                    )}
+                                </button>
+                                <span className="absolute top-full left-1/2 -translate-x-1/2 mt-1.5 px-2 py-1 text-[10px] font-medium text-white bg-zinc-800 dark:bg-zinc-700 rounded shadow-lg whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                                    {syncing ? '同步中...' : settings?.feishu?.autoSync ? '飞书自动同步' : '同步到飞书'}
+                                </span>
+                            </div>
                         )}
 
                         {/* Settings */}
-                        <button
-                            onClick={() => chrome.runtime.openOptionsPage()}
-                            className="p-2 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors"
-                            title="设置"
-                        >
-                            <SettingsIcon className="w-4 h-4" />
-                        </button>
+                        <div className="relative group">
+                            <button
+                                onClick={() => chrome.runtime.openOptionsPage()}
+                                className="p-2 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors"
+                            >
+                                <SettingsIcon className="w-4 h-4" />
+                            </button>
+                            <span className="absolute top-full left-1/2 -translate-x-1/2 mt-1.5 px-2 py-1 text-[10px] font-medium text-white bg-zinc-800 dark:bg-zinc-700 rounded shadow-lg whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                                设置
+                            </span>
+                        </div>
 
                          {/* Export Dropdown */}
                          {tweets.length > 0 && (
                             <div className="relative group ml-1">
                                 <button
                                     className="p-2 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors"
-                                    title="导出"
                                 >
                                     <Download className="w-4 h-4" />
                                 </button>
+                                <span className="absolute top-full right-0 mt-1.5 px-2 py-1 text-[10px] font-medium text-white bg-zinc-800 dark:bg-zinc-700 rounded shadow-lg whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none">
+                                    导出
+                                </span>
                                 <div className="absolute right-0 top-full mt-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-xl overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 min-w-[140px]">
                                     <button
                                         onClick={exportAsJSON}
@@ -1030,7 +1066,7 @@ export default function SidePanel() {
                                 {referenceSource === 'inspiration' && (
                                     <>
                                         {/* 灵感模式开关 */}
-                                        <div className="flex items-center justify-between p-2 mb-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/30 rounded-lg">
+                                        <div className="flex items-center justify-between p-2 mb-2 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/30 rounded-lg">
                                             <div className="flex items-center gap-2">
                                                 <Radio className={cn('w-4 h-4', inspirationMode ? 'text-amber-500' : 'text-zinc-400')} />
                                                 <span className="text-xs font-medium text-amber-700 dark:text-amber-400">
@@ -1052,6 +1088,32 @@ export default function SidePanel() {
                                                 />
                                             </button>
                                         </div>
+                                        
+                                        {/* 实时采集日志 */}
+                                        {inspirationMode && captureLog.length > 0 && (
+                                            <div className="mb-3 p-2 bg-zinc-900/5 dark:bg-zinc-100/5 rounded-lg border border-zinc-200/50 dark:border-zinc-700/50">
+                                                <div className="flex items-center gap-1.5 mb-1.5">
+                                                    <span className="relative flex h-2 w-2">
+                                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                                                    </span>
+                                                    <span className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400">采集日志</span>
+                                                </div>
+                                                <div className="space-y-0.5 max-h-20 overflow-y-auto">
+                                                    {captureLog.map((log, idx) => (
+                                                        <div 
+                                                            key={log.time} 
+                                                            className={cn(
+                                                                "text-[11px] text-zinc-600 dark:text-zinc-400 truncate transition-opacity duration-300",
+                                                                idx === 0 ? "opacity-100" : "opacity-60"
+                                                            )}
+                                                        >
+                                                            {log.text}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
 
                                         {/* 灵感内容列表 */}
                                         {inspirationItems.length === 0 ? (
