@@ -7,7 +7,7 @@ import { vectorDB } from '../lib/vectorDB';
 
 // Embedding 相关消息类型
 interface EmbeddingMessage {
-    type: 'EMBED_TWEET' | 'EMBED_INSPIRATION' | 'SEMANTIC_SEARCH' | 'TEST_EMBEDDING' | 'GET_VECTOR_STATS' | 'DELETE_VECTOR';
+    type: 'EMBED_TWEET' | 'EMBED_INSPIRATION' | 'SEMANTIC_SEARCH' | 'TEST_EMBEDDING' | 'GET_VECTOR_STATS' | 'DELETE_VECTOR' | 'CLEAR_ALL_VECTORS';
     tweet?: Tweet;
     inspiration?: InspirationItem;
     settings?: Settings;
@@ -245,6 +245,14 @@ chrome.runtime.onMessage.addListener((message: FeishuSyncMessage | InspirationMe
         } else {
             sendResponse({ success: false, error: '缺少 itemId' });
         }
+        return true;
+    }
+
+    // 清空所有向量
+    if (embeddingMsg.type === 'CLEAR_ALL_VECTORS') {
+        vectorDB.clearAllVectors()
+            .then(() => sendResponse({ success: true }))
+            .catch((error) => sendResponse({ success: false, error: error.message }));
         return true;
     }
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Save, CheckCircle, AlertCircle, ChevronDown, ChevronRight, Eye, EyeOff, Link2, HelpCircle, Cloud } from 'lucide-react';
+import { Save, CheckCircle, AlertCircle, ChevronDown, ChevronRight, Eye, EyeOff, Link2, HelpCircle, Cloud, Database, Loader2, Trash2 } from 'lucide-react';
 import { storage } from '../lib/storage';
-import { Settings } from '../lib/types';
+import { Settings, Tweet } from '../lib/types';
 import { callAI, defaultSummaryRules, defaultCreationRules } from '../lib/ai';
 import { parseFeishuDocUrl } from '../lib/feishu';
 
@@ -26,8 +26,16 @@ export default function Options() {
     const [syncingFeishu, setSyncingFeishu] = useState(false);
     const [feishuSyncResult, setFeishuSyncResult] = useState<{ success: boolean; message: string } | null>(null);
 
+    // 向量化相关状态
+    const [vectorStats, setVectorStats] = useState<{ total: number; tweets: number; inspirations: number } | null>(null);
+    const [totalTweets, setTotalTweets] = useState(0);
+    const [vectorizing, setVectorizing] = useState(false);
+    const [vectorizeProgress, setVectorizeProgress] = useState({ current: 0, total: 0 });
+    const [vectorizeResult, setVectorizeResult] = useState<{ success: boolean; message: string } | null>(null);
+
     useEffect(() => {
         loadSettings();
+        loadVectorStats();
     }, []);
 
     // 当 settings 中的飞书配置变化时，同步到 feishuDocUrl
@@ -44,6 +52,109 @@ export default function Options() {
         const stored = await storage.getSettings();
         if (stored) {
             setSettings(stored);
+        }
+    }
+
+    async function loadVectorStats() {
+        try {
+            // 获取向量统计
+            const response = await chrome.runtime.sendMessage({ type: 'GET_VECTOR_STATS' });
+            if (response.success) {
+                setVectorStats(response.stats);
+            }
+            // 获取收藏总数
+            const tweets = await storage.getTweets();
+            setTotalTweets(tweets.length);
+        } catch (error) {
+            console.error('加载向量统计失败:', error);
+        }
+    }
+
+    async function handleVectorizeAll() {
+        if (!settings.enableSemanticSearch || !settings.embeddingModel) {
+            setVectorizeResult({ success: false, message: '请先启用语义搜索并配置 Embedding 模型' });
+            return;
+        }
+
+        setVectorizing(true);
+        setVectorizeResult(null);
+
+        try {
+            const tweets = await storage.getTweets();
+            const toVectorize: Tweet[] = [];
+
+            // 筛选出需要向量化的内容（有 summary 的）
+            for (const tweet of tweets) {
+                if (tweet.summary || tweet.content) {
+                    toVectorize.push(tweet);
+                }
+            }
+
+            if (toVectorize.length === 0) {
+                setVectorizeResult({ success: true, message: '没有需要向量化的内容' });
+                setVectorizing(false);
+                return;
+            }
+
+            setVectorizeProgress({ current: 0, total: toVectorize.length });
+
+            let successCount = 0;
+            let errorCount = 0;
+
+            for (let i = 0; i < toVectorize.length; i++) {
+                const tweet = toVectorize[i];
+                setVectorizeProgress({ current: i + 1, total: toVectorize.length });
+
+                try {
+                    await chrome.runtime.sendMessage({
+                        type: 'EMBED_TWEET',
+                        tweet,
+                        settings
+                    });
+                    successCount++;
+                    // 添加小延迟避免 API 限流
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                } catch (err) {
+                    console.error('向量化失败:', tweet.id, err);
+                    errorCount++;
+                }
+            }
+
+            // 刷新统计
+            await loadVectorStats();
+
+            if (errorCount === 0) {
+                setVectorizeResult({ success: true, message: `成功向量化 ${successCount} 条内容` });
+            } else {
+                setVectorizeResult({ success: false, message: `完成 ${successCount} 条，失败 ${errorCount} 条` });
+            }
+        } catch (error) {
+            setVectorizeResult({ 
+                success: false, 
+                message: error instanceof Error ? error.message : '向量化失败' 
+            });
+        } finally {
+            setVectorizing(false);
+        }
+    }
+
+    async function handleClearVectors() {
+        if (!confirm('确定要清空所有向量数据吗？清空后需要重新向量化才能使用语义搜索。')) {
+            return;
+        }
+
+        try {
+            // 这里需要通过 background 调用 vectorDB.clearAllVectors
+            // 由于 vectorDB 在 background 中可用，我们发送消息
+            const response = await chrome.runtime.sendMessage({ type: 'CLEAR_ALL_VECTORS' });
+            if (response.success) {
+                setVectorStats({ total: 0, tweets: 0, inspirations: 0 });
+                setVectorizeResult({ success: true, message: '已清空所有向量数据' });
+            } else {
+                setVectorizeResult({ success: false, message: response.error || '清空失败' });
+            }
+        } catch (error) {
+            setVectorizeResult({ success: false, message: '清空失败' });
         }
     }
 
@@ -478,6 +589,95 @@ export default function Options() {
                                             <span className="text-amber-500/80">OpenAI：text-embedding-3-small（推荐）或 text-embedding-ada-002</span>
                                             <br />
                                             <span className="text-gray-600">阿里云：text-embedding-v3 | 硅基流动：BAAI/bge-m3</span>
+                                        </p>
+                                    </div>
+
+                                    {/* 向量化管理 */}
+                                    <div className="pt-4 border-t border-gray-700/50">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <Database className="w-4 h-4 text-violet-400" />
+                                            <span className="text-sm font-medium text-gray-300">向量数据管理</span>
+                                        </div>
+
+                                        {/* 统计信息 */}
+                                        <div className="bg-[#141414] rounded-lg p-3 mb-3">
+                                            <div className="grid grid-cols-3 gap-3 text-center">
+                                                <div>
+                                                    <p className="text-lg font-semibold text-white">{totalTweets}</p>
+                                                    <p className="text-xs text-gray-500">收藏总数</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-lg font-semibold text-violet-400">{vectorStats?.tweets || 0}</p>
+                                                    <p className="text-xs text-gray-500">已向量化</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-lg font-semibold text-amber-400">
+                                                        {Math.max(0, totalTweets - (vectorStats?.tweets || 0))}
+                                                    </p>
+                                                    <p className="text-xs text-gray-500">待处理</p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* 进度条 */}
+                                        {vectorizing && (
+                                            <div className="mb-3">
+                                                <div className="flex items-center justify-between text-xs text-gray-400 mb-1">
+                                                    <span>正在向量化...</span>
+                                                    <span>{vectorizeProgress.current} / {vectorizeProgress.total}</span>
+                                                </div>
+                                                <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden">
+                                                    <div 
+                                                        className="h-full bg-gradient-to-r from-violet-500 to-purple-500 transition-all duration-300"
+                                                        style={{ width: `${(vectorizeProgress.current / vectorizeProgress.total) * 100}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* 操作按钮 */}
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={handleVectorizeAll}
+                                                disabled={vectorizing || !settings.embeddingModel}
+                                                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-violet-600 hover:bg-violet-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+                                            >
+                                                {vectorizing ? (
+                                                    <>
+                                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                                        处理中...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Database className="w-4 h-4" />
+                                                        向量化全部
+                                                    </>
+                                                )}
+                                            </button>
+                                            <button
+                                                onClick={handleClearVectors}
+                                                disabled={vectorizing || (vectorStats?.total || 0) === 0}
+                                                className="px-3 py-2 bg-red-600/20 hover:bg-red-600/30 disabled:bg-gray-700/20 disabled:cursor-not-allowed text-red-400 disabled:text-gray-500 text-sm font-medium rounded-lg transition-colors"
+                                                title="清空向量数据"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+
+                                        {/* 结果提示 */}
+                                        {vectorizeResult && (
+                                            <div className={`mt-3 flex items-center gap-2 text-sm ${vectorizeResult.success ? 'text-green-400' : 'text-red-400'}`}>
+                                                {vectorizeResult.success ? (
+                                                    <CheckCircle className="w-4 h-4" />
+                                                ) : (
+                                                    <AlertCircle className="w-4 h-4" />
+                                                )}
+                                                {vectorizeResult.message}
+                                            </div>
+                                        )}
+
+                                        <p className="text-xs text-gray-600 mt-2">
+                                            对已有收藏内容生成向量，以支持语义搜索。新收藏会自动处理。
                                         </p>
                                     </div>
                                 </div>
