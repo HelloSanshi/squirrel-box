@@ -3,7 +3,7 @@ import {
     BookOpen, PenTool, Trash2, Copy, Sparkles, Loader2, ExternalLink,
     Send, Settings as SettingsIcon, Download, MousePointer2,
     AlertTriangle, Sun, Moon, Monitor, ChevronDown, Filter,
-    Plus, Check, X, Library, Cloud, CloudOff, Lightbulb
+    Plus, Check, X, Library, Cloud, CloudOff, Lightbulb, Search
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { storage, Theme } from '../lib/storage';
@@ -51,13 +51,39 @@ export default function SidePanel() {
     // 采集日志（最近的采集记录）
     const [captureLog, setCaptureLog] = useState<{ text: string; time: number }[]>([]);
 
+    // ==================== 语义搜索状态 ====================
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState<Array<{ id: string; type: string; similarity: number }>>([]);
+    const [isSearching, setIsSearching] = useState(false);
+    const [searchMode, setSearchMode] = useState(false); // 是否处于搜索模式
+
     useEffect(() => {
         loadData();
 
         // Listen for storage changes
-        chrome.storage.onChanged.addListener((changes, areaName) => {
+        chrome.storage.onChanged.addListener(async (changes, areaName) => {
             if (changes.tweets) {
-                setTweets((changes.tweets.newValue as Tweet[]) || []);
+                const newTweets = (changes.tweets.newValue as Tweet[]) || [];
+                const oldTweets = (changes.tweets.oldValue as Tweet[]) || [];
+                setTweets(newTweets);
+                
+                // 检测是否有 tweet 完成了 AI 摘要（新增了 summary）
+                // 用于触发 embedding 生成
+                const currentSettings = await storage.getSettings();
+                if (currentSettings?.enableSemanticSearch) {
+                    for (const newTweet of newTweets) {
+                        const oldTweet = oldTweets.find(t => t.id === newTweet.id);
+                        // 如果是新的 tweet 或者旧 tweet 没有 summary 但新的有
+                        if (!oldTweet || (!oldTweet.summary && newTweet.summary)) {
+                            // 触发 embedding 生成
+                            chrome.runtime.sendMessage({
+                                type: 'EMBED_TWEET',
+                                tweet: newTweet,
+                                settings: currentSettings
+                            }).catch(err => console.error('[SidePanel] Embedding 请求失败:', err));
+                        }
+                    }
+                }
             }
             // 监听灵感数据变化（session storage）
             if (areaName === 'session' && changes.inspirationItems) {
@@ -127,6 +153,45 @@ export default function SidePanel() {
         if (storedSettings) {
             setLanguage(storedSettings.defaultLanguage);
         }
+    }
+
+    // ==================== 语义搜索 ====================
+    async function handleSemanticSearch() {
+        if (!searchQuery.trim() || !settings?.enableSemanticSearch) {
+            return;
+        }
+
+        setIsSearching(true);
+        setSearchMode(true);
+
+        try {
+            const response = await chrome.runtime.sendMessage({
+                type: 'SEMANTIC_SEARCH',
+                query: searchQuery.trim(),
+                settings,
+                topK: 20,
+                searchType: 'tweet' // 目前只搜索收藏
+            });
+
+            if (response.success && response.results) {
+                setSearchResults(response.results);
+            } else {
+                console.error('[SidePanel] 语义搜索失败:', response.error);
+                setSearchResults([]);
+            }
+        } catch (error) {
+            console.error('[SidePanel] 语义搜索错误:', error);
+            setSearchResults([]);
+        } finally {
+            setIsSearching(false);
+        }
+    }
+
+    // 清除搜索
+    function clearSearch() {
+        setSearchQuery('');
+        setSearchResults([]);
+        setSearchMode(false);
     }
 
     function cycleTheme() {
@@ -410,10 +475,25 @@ export default function SidePanel() {
     const platforms = Array.from(new Set(tweets.map(t => t.platform).filter(Boolean)));
 
     // 筛选和排序推文
-    const filteredTweets = tweets
-        .filter(tweet => categoryFilter === 'all' || tweet.category === categoryFilter)
-        .filter(tweet => platformFilter === 'all' || tweet.platform === platformFilter)
-        .sort((a, b) => b.collectTime - a.collectTime); // 按时间倒序
+    const filteredTweets = (() => {
+        // 搜索模式：按相似度排序
+        if (searchMode && searchResults.length > 0) {
+            const searchIdSet = new Set(searchResults.map(r => r.id));
+            const searchIdToSimilarity = new Map(searchResults.map(r => [r.id, r.similarity]));
+            return tweets
+                .filter(tweet => searchIdSet.has(tweet.id))
+                .sort((a, b) => {
+                    const simA = searchIdToSimilarity.get(a.id) || 0;
+                    const simB = searchIdToSimilarity.get(b.id) || 0;
+                    return simB - simA; // 相似度高的在前
+                });
+        }
+        // 普通模式：按筛选条件和时间排序
+        return tweets
+            .filter(tweet => categoryFilter === 'all' || tweet.category === categoryFilter)
+            .filter(tweet => platformFilter === 'all' || tweet.platform === platformFilter)
+            .sort((a, b) => b.collectTime - a.collectTime);
+    })();
 
     const toggleExpanded = (tweetId: string) => {
         const newExpanded = new Set(expandedTweets);
@@ -681,8 +761,66 @@ export default function SidePanel() {
                             </div>
                         )}
 
+                        {/* 语义搜索框 - 启用语义搜索且非选择模式时显示 */}
+                        {settings?.enableSemanticSearch && !selectMode && (
+                            <div className="relative">
+                                <div className="flex gap-2">
+                                    <div className="relative flex-1">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                                        <input
+                                            type="text"
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') handleSemanticSearch();
+                                                if (e.key === 'Escape') clearSearch();
+                                            }}
+                                            placeholder="语义搜索收藏内容..."
+                                            className="w-full pl-9 pr-3 py-2 text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all"
+                                        />
+                                    </div>
+                                    {searchQuery && (
+                                        <button
+                                            onClick={clearSearch}
+                                            className="px-3 py-2 text-xs text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+                                        >
+                                            清除
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={handleSemanticSearch}
+                                        disabled={!searchQuery.trim() || isSearching}
+                                        className={cn(
+                                            'px-4 py-2 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5',
+                                            searchQuery.trim() && !isSearching
+                                                ? 'bg-violet-600 hover:bg-violet-700 text-white'
+                                                : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400 cursor-not-allowed'
+                                        )}
+                                    >
+                                        {isSearching ? (
+                                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                        ) : (
+                                            <Search className="w-3.5 h-3.5" />
+                                        )}
+                                        搜索
+                                    </button>
+                                </div>
+                                {/* 搜索模式提示 */}
+                                {searchMode && (
+                                    <div className="mt-2 flex items-center gap-2 text-xs text-violet-600 dark:text-violet-400">
+                                        <Sparkles className="w-3.5 h-3.5" />
+                                        <span>
+                                            {searchResults.length > 0
+                                                ? `找到 ${searchResults.length} 条相关内容`
+                                                : '未找到相关内容'}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         {/* Filters - 非选择模式下显示 */}
-                        {tweets.length > 0 && !selectMode && (
+                        {tweets.length > 0 && !selectMode && !searchMode && (
                             <div className="flex gap-2 items-center sticky top-0 z-0"> 
                                 {/* Platform Filter */}
                                 {platforms.length > 0 && (

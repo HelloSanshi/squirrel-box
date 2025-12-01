@@ -63,6 +63,11 @@ export interface Settings {
     visionModel?: string; // 视觉模型名称（需支持 vision，如 gpt-4o、qwen-vl-max）
     visionApiKey?: string; // 视觉模型 API Key（不填则使用主 API Key）
     visionBaseUrl?: string; // 视觉模型 Base URL（不填则使用主 Base URL）
+    // Embedding 模型配置（用于语义搜索，如果不配置则使用主配置）
+    embeddingModel?: string; // Embedding 模型名称（如 text-embedding-3-small）
+    embeddingApiKey?: string; // Embedding API Key（不填则使用主 API Key）
+    embeddingBaseUrl?: string; // Embedding Base URL（不填则使用主 Base URL）
+    enableSemanticSearch?: boolean; // 语义搜索开关
     defaultLanguage: 'zh' | 'en' | 'ja' | 'ko';
     readingMode: boolean;
     customSummaryPrompt?: string; // 自定义摘要提示词
@@ -78,6 +83,15 @@ export interface Settings {
         docType?: 'doc' | 'docx' | 'sheet' | 'wiki'; // 文档类型
         autoSync?: boolean; // 是否自动同步
     };
+}
+
+// 向量存储记录
+export interface VectorRecord {
+    id: string;              // 对应 Tweet.id 或 InspirationItem.id
+    type: 'tweet' | 'inspiration';
+    content: string;         // 用于生成 embedding 的文本
+    vector: number[];        // embedding 向量
+    createdAt: number;
 }
 
 export interface CreationRequest {

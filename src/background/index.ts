@@ -1,7 +1,21 @@
 import { getTenantAccessToken, syncToFeishu } from '../lib/feishu';
 import type { FeishuSyncMessage } from '../lib/feishu';
 import { storage } from '../lib/storage';
-import type { InspirationMessage } from '../lib/types';
+import type { InspirationMessage, Tweet, InspirationItem, Settings } from '../lib/types';
+import { embedding } from '../lib/embedding';
+import { vectorDB } from '../lib/vectorDB';
+
+// Embedding 相关消息类型
+interface EmbeddingMessage {
+    type: 'EMBED_TWEET' | 'EMBED_INSPIRATION' | 'SEMANTIC_SEARCH' | 'TEST_EMBEDDING' | 'GET_VECTOR_STATS' | 'DELETE_VECTOR';
+    tweet?: Tweet;
+    inspiration?: InspirationItem;
+    settings?: Settings;
+    query?: string;
+    topK?: number;
+    searchType?: 'tweet' | 'inspiration';
+    itemId?: string;
+}
 
 console.log('Background service worker loaded');
 
@@ -144,7 +158,94 @@ chrome.runtime.onMessage.addListener((message: FeishuSyncMessage | InspirationMe
             console.error('[Background] 飞书同步参数不完整');
             sendResponse({ success: false, error: '缺少必要参数' });
         }
-        return true; // 保持消息通道开启以便异步响应
+        return true;
+    }
+
+    // ==================== Embedding 消息处理 ====================
+    const embeddingMsg = message as unknown as EmbeddingMessage;
+
+    // 为 Tweet 生成 embedding
+    if (embeddingMsg.type === 'EMBED_TWEET') {
+        if (embeddingMsg.tweet && embeddingMsg.settings) {
+            console.log('[Background] 为 Tweet 生成 embedding:', embeddingMsg.tweet.id);
+            embedding.embedTweet(embeddingMsg.tweet, embeddingMsg.settings)
+                .then(() => sendResponse({ success: true }))
+                .catch((error) => {
+                    console.error('[Background] Tweet embedding 失败:', error);
+                    sendResponse({ success: false, error: error.message });
+                });
+        } else {
+            sendResponse({ success: false, error: '缺少 tweet 或 settings' });
+        }
+        return true;
+    }
+
+    // 为 Inspiration 生成 embedding
+    if (embeddingMsg.type === 'EMBED_INSPIRATION') {
+        if (embeddingMsg.inspiration && embeddingMsg.settings) {
+            console.log('[Background] 为 Inspiration 生成 embedding:', embeddingMsg.inspiration.id);
+            embedding.embedInspiration(embeddingMsg.inspiration, embeddingMsg.settings)
+                .then(() => sendResponse({ success: true }))
+                .catch((error) => {
+                    console.error('[Background] Inspiration embedding 失败:', error);
+                    sendResponse({ success: false, error: error.message });
+                });
+        } else {
+            sendResponse({ success: false, error: '缺少 inspiration 或 settings' });
+        }
+        return true;
+    }
+
+    // 语义搜索
+    if (embeddingMsg.type === 'SEMANTIC_SEARCH') {
+        if (embeddingMsg.query && embeddingMsg.settings) {
+            console.log('[Background] 执行语义搜索:', embeddingMsg.query);
+            embedding.semanticSearch(embeddingMsg.query, embeddingMsg.settings, {
+                topK: embeddingMsg.topK || 10,
+                type: embeddingMsg.searchType
+            })
+                .then((results) => sendResponse({ success: true, results }))
+                .catch((error) => {
+                    console.error('[Background] 语义搜索失败:', error);
+                    sendResponse({ success: false, error: error.message, results: [] });
+                });
+        } else {
+            sendResponse({ success: false, error: '缺少 query 或 settings', results: [] });
+        }
+        return true;
+    }
+
+    // 测试 Embedding API 连接
+    if (embeddingMsg.type === 'TEST_EMBEDDING') {
+        if (embeddingMsg.settings) {
+            console.log('[Background] 测试 Embedding API 连接');
+            embedding.testEmbeddingConnection(embeddingMsg.settings)
+                .then((result) => sendResponse(result))
+                .catch((error) => sendResponse({ success: false, message: error.message }));
+        } else {
+            sendResponse({ success: false, message: '缺少 settings' });
+        }
+        return true;
+    }
+
+    // 获取向量统计
+    if (embeddingMsg.type === 'GET_VECTOR_STATS') {
+        vectorDB.getVectorStats()
+            .then((stats) => sendResponse({ success: true, stats }))
+            .catch((error) => sendResponse({ success: false, error: error.message }));
+        return true;
+    }
+
+    // 删除向量
+    if (embeddingMsg.type === 'DELETE_VECTOR') {
+        if (embeddingMsg.itemId) {
+            vectorDB.deleteVector(embeddingMsg.itemId)
+                .then(() => sendResponse({ success: true }))
+                .catch((error) => sendResponse({ success: false, error: error.message }));
+        } else {
+            sendResponse({ success: false, error: '缺少 itemId' });
+        }
+        return true;
     }
 
     return true;

@@ -410,6 +410,78 @@ export default function Options() {
                                     </p>
                                 </div>
                             </div>
+
+                            {/* Semantic Search Toggle */}
+                            <div className="flex items-start gap-3">
+                                <input
+                                    type="checkbox"
+                                    id="semanticSearch"
+                                    checked={settings.enableSemanticSearch || false}
+                                    onChange={(e) => setSettings({ ...settings, enableSemanticSearch: e.target.checked })}
+                                    className="mt-1 w-4 h-4 rounded bg-[#0a0a0a] border-gray-800 text-blue-600 focus:ring-blue-500 focus:ring-offset-0"
+                                />
+                                <div className="flex-1">
+                                    <label htmlFor="semanticSearch" className="text-sm font-medium text-gray-300 cursor-pointer">
+                                        启用语义搜索
+                                    </label>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        使用 Embedding 模型将收藏内容向量化，支持语义相似度搜索。开启后收藏时会自动生成向量，存储在本地浏览器中。
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Embedding Model Config - Only show when semantic search is enabled */}
+                            {settings.enableSemanticSearch && (
+                                <div className="ml-7 space-y-4 p-4 bg-[#0a0a0a] rounded-lg border border-gray-800">
+                                    <p className="text-xs text-amber-500/80 -mt-1">
+                                        💡 以下配置为可选，留空则使用上方的主配置
+                                    </p>
+                                    
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-300 mb-2">
+                                            Embedding API Key
+                                        </label>
+                                        <input
+                                            type="password"
+                                            value={settings.embeddingApiKey || ''}
+                                            onChange={(e) => setSettings({ ...settings, embeddingApiKey: e.target.value || undefined })}
+                                            placeholder="留空则使用主 API Key"
+                                            className="w-full px-3 py-2 bg-[#141414] border border-gray-700 rounded-lg text-white placeholder-gray-600 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-300 mb-2">
+                                            Embedding API Base URL
+                                        </label>
+                                        <input
+                                            type="url"
+                                            value={settings.embeddingBaseUrl || ''}
+                                            onChange={(e) => setSettings({ ...settings, embeddingBaseUrl: e.target.value || undefined })}
+                                            placeholder="留空则使用主 Base URL"
+                                            className="w-full px-3 py-2 bg-[#141414] border border-gray-700 rounded-lg text-white placeholder-gray-600 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-300 mb-2">
+                                            Embedding 模型名称 <span className="text-red-400">*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={settings.embeddingModel || ''}
+                                            onChange={(e) => setSettings({ ...settings, embeddingModel: e.target.value || undefined })}
+                                            placeholder="text-embedding-3-small"
+                                            className="w-full px-3 py-2 bg-[#141414] border border-gray-700 rounded-lg text-white placeholder-gray-600 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                                        />
+                                        <p className="text-xs text-gray-500 mt-1.5">
+                                            <span className="text-amber-500/80">OpenAI：text-embedding-3-small（推荐）或 text-embedding-ada-002</span>
+                                            <br />
+                                            <span className="text-gray-600">阿里云：text-embedding-v3 | 硅基流动：BAAI/bge-m3</span>
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 
