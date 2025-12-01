@@ -3,7 +3,7 @@ import {
     BookOpen, PenTool, Trash2, Copy, Sparkles, Loader2, ExternalLink,
     Send, Settings as SettingsIcon, Download, MousePointer2,
     AlertTriangle, Sun, Moon, Monitor, ChevronDown, Filter,
-    Plus, Check, X, Library, Cloud, CloudOff, Radio, Lightbulb
+    Plus, Check, X, Library, Cloud, CloudOff, Lightbulb
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { storage, Theme } from '../lib/storage';
