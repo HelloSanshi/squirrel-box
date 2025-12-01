@@ -48,10 +48,11 @@ export interface InspirationItem {
 
 // 灵感模式相关消息类型
 export interface InspirationMessage {
-    type: 'INSPIRATION_MODE_CHANGED' | 'INSPIRATION_ITEM_CAPTURED' | 'INSPIRATION_ITEMS_CLEAR' | 'GET_INSPIRATION_MODE' | 'GET_INSPIRATION_ITEMS';
+    type: 'INSPIRATION_MODE_CHANGED' | 'INSPIRATION_ITEM_CAPTURED' | 'INSPIRATION_ITEMS_CLEAR' | 'INSPIRATION_ITEM_REMOVE' | 'GET_INSPIRATION_MODE' | 'GET_INSPIRATION_ITEMS';
     enabled?: boolean;
     item?: InspirationItem;
     items?: InspirationItem[];
+    itemId?: string;
 }
 
 export interface Settings {

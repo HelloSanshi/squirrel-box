@@ -1,7 +1,7 @@
 import { getTenantAccessToken, syncToFeishu } from '../lib/feishu';
 import type { FeishuSyncMessage } from '../lib/feishu';
 import { storage } from '../lib/storage';
-import type { InspirationItem, InspirationMessage } from '../lib/types';
+import type { InspirationMessage } from '../lib/types';
 
 console.log('Background service worker loaded');
 
@@ -93,10 +93,10 @@ chrome.runtime.onMessage.addListener((message: FeishuSyncMessage | InspirationMe
     }
 
     // 删除单条灵感内容
-    if (message.type === 'INSPIRATION_ITEM_REMOVE') {
-        const itemId = (message as { type: string; itemId: string }).itemId;
-        if (itemId) {
-            storage.removeInspirationItem(itemId)
+    if ((message as InspirationMessage).type === 'INSPIRATION_ITEM_REMOVE') {
+        const inspirationMsg = message as InspirationMessage;
+        if (inspirationMsg.itemId) {
+            storage.removeInspirationItem(inspirationMsg.itemId)
                 .then(() => sendResponse({ success: true }))
                 .catch((error) => sendResponse({ success: false, error: error.message }));
         } else {
