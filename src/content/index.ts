@@ -2,12 +2,12 @@ import { storage } from '../lib/storage';
 import { summarizeTweet, recognizeImage } from '../lib/ai';
 import { generateId } from '../lib/utils';
 import { Tweet, InspirationItem } from '../lib/types';
+import { mountPetOverlay } from './components/PetOverlay';
 
 console.log('松鼠收藏夹: Content script loaded');
 
 let readingMode = false;
 let currentTweet: Element | null = null;
-let floatingBtnElement: HTMLElement | null = null; // 悬浮按钮元素引用
 
 // ==================== 灵感模式 ====================
 let inspirationMode = false;
@@ -46,8 +46,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     // 切换悬浮按钮显示/隐藏
     if (message.type === 'TOGGLE_FLOATING_BUTTON') {
         const show = message.show;
-        if (floatingBtnElement) {
-            floatingBtnElement.style.display = show ? 'flex' : 'none';
+        const container = document.getElementById('squirrel-pet-container');
+        if (container) {
+            container.style.display = show ? 'block' : 'none';
         }
         console.log('悬浮按钮显示状态:', show ? '显示' : '隐藏');
         sendResponse({ success: true });
@@ -70,143 +71,6 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
 });
 
-// Create floating collect button
-function createFloatingButton() {
-    // Check if button already exists
-    if (document.getElementById('twitter-ai-floating-btn')) {
-        return;
-    }
-
-    const floatingBtn = document.createElement('div');
-    floatingBtn.id = 'twitter-ai-floating-btn';
-    const logoUrl = chrome.runtime.getURL('icons/logo.png');
-    floatingBtn.innerHTML = `
-    <img src="${logoUrl}" width="40" height="40" style="border-radius: 10px; display: block;">
-  `;
-    floatingBtn.style.cssText = `
-    position: fixed;
-    bottom: 80px;
-    right: 30px;
-    width: 60px;
-    height: 60px;
-    border-radius: 16px;
-    background: transparent;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: grab;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-    z-index: 10000;
-    transition: all 0.3s ease;
-    user-select: none;
-  `;
-
-    // Draggable functionality
-    let isDragging = false;
-    let startX = 0;
-    let startY = 0;
-    let initialX = 0;
-    let initialY = 0;
-
-    floatingBtn.onmousedown = (e) => {
-        isDragging = true;
-        floatingBtn.style.cursor = 'grabbing';
-        floatingBtn.style.transition = 'none';
-
-        const rect = floatingBtn.getBoundingClientRect();
-        startX = e.clientX;
-        startY = e.clientY;
-        initialX = rect.left;
-        initialY = rect.top;
-
-        e.preventDefault();
-    };
-
-    document.onmousemove = (e) => {
-        if (!isDragging) return;
-
-        const deltaX = e.clientX - startX;
-        const deltaY = e.clientY - startY;
-
-        const newX = initialX + deltaX;
-        const newY = initialY + deltaY;
-
-        floatingBtn.style.left = `${newX}px`;
-        floatingBtn.style.top = `${newY}px`;
-        floatingBtn.style.right = 'auto';
-        floatingBtn.style.bottom = 'auto';
-    };
-
-    document.onmouseup = (e) => {
-        if (!isDragging) return;
-
-        isDragging = false;
-        floatingBtn.style.cursor = 'grab';
-        floatingBtn.style.transition = 'all 0.3s ease';
-
-        // Snap to nearest edge
-        const rect = floatingBtn.getBoundingClientRect();
-        const centerX = rect.left + rect.width / 2;
-        const centerY = rect.top + rect.height / 2;
-
-        const windowWidth = window.innerWidth;
-        const windowHeight = window.innerHeight;
-
-        const distanceToLeft = centerX;
-        const distanceToRight = windowWidth - centerX;
-        const distanceToTop = centerY;
-        const distanceToBottom = windowHeight - centerY;
-
-        const minDistance = Math.min(distanceToLeft, distanceToRight, distanceToTop, distanceToBottom);
-
-        const margin = 30;
-
-        if (minDistance === distanceToLeft) {
-            floatingBtn.style.left = `${margin}px`;
-            floatingBtn.style.top = `${Math.max(margin, Math.min(rect.top, windowHeight - rect.height - margin))}px`;
-        } else if (minDistance === distanceToRight) {
-            floatingBtn.style.left = `${windowWidth - rect.width - margin}px`;
-            floatingBtn.style.top = `${Math.max(margin, Math.min(rect.top, windowHeight - rect.height - margin))}px`;
-        } else if (minDistance === distanceToTop) {
-            floatingBtn.style.left = `${Math.max(margin, Math.min(rect.left, windowWidth - rect.width - margin))}px`;
-            floatingBtn.style.top = `${margin}px`;
-        } else {
-            floatingBtn.style.left = `${Math.max(margin, Math.min(rect.left, windowWidth - rect.width - margin))}px`;
-            floatingBtn.style.top = `${windowHeight - rect.height - margin}px`;
-        }
-
-        floatingBtn.style.right = 'auto';
-        floatingBtn.style.bottom = 'auto';
-
-        // Only trigger click if not dragged
-        const deltaX = e.clientX - startX;
-        const deltaY = e.clientY - startY;
-        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-
-        if (distance < 5) {
-            collectCurrentTweet();
-        }
-    };
-
-    floatingBtn.onmouseover = () => {
-        if (!isDragging) {
-            floatingBtn.style.transform = 'scale(1.08) translateY(-2px)';
-            floatingBtn.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.4)';
-        }
-    };
-
-    floatingBtn.onmouseout = () => {
-        if (!isDragging) {
-            floatingBtn.style.transform = 'scale(1) translateY(0)';
-            floatingBtn.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.3)';
-        }
-    };
-
-    document.body.appendChild(floatingBtn);
-    floatingBtnElement = floatingBtn; // 保存引用
-    console.log('Floating button created');
-}
-
 // Track current tweet on hover
 function trackCurrentTweet() {
     document.addEventListener('mouseover', (e) => {
@@ -214,20 +78,20 @@ function trackCurrentTweet() {
         const tweetElement = target.closest('article[data-testid="tweet"]');
         if (tweetElement) {
             currentTweet = tweetElement;
-            // 移除高亮效果，不再显示蓝色框线
-            // highlightTweet(tweetElement as HTMLElement);
         }
     });
 }
 
-async function collectCurrentTweet() {
-    if (!currentTweet) {
-        showNotification('请先将鼠标悬停在要收藏的推文上');
+async function collectCurrentTweet(targetTweet?: Element) {
+    const tweetToCollect = targetTweet || currentTweet;
+
+    if (!tweetToCollect) {
+        showNotification('请先将鼠标悬停在要收藏的推文上，或将松鼠拖拽到推文上');
         return;
     }
 
     try {
-        await collectTweet(currentTweet);
+        await collectTweet(tweetToCollect);
         showNotification('✓ 已收藏！');
     } catch (error) {
         console.error('Failed to collect tweet:', error);
@@ -832,13 +696,15 @@ async function init() {
     const settings = await storage.getSettings();
     const showButton = settings?.showFloatingButton !== false; // 默认显示
     
-    createFloatingButton();
+    // Initialize Pet Overlay
+    mountPetOverlay(collectCurrentTweet);
     trackCurrentTweet();
     
-    // 根据设置显示/隐藏悬浮按钮
-    if (floatingBtnElement && !showButton) {
-        floatingBtnElement.style.display = 'none';
-        console.log('悬浮按钮已根据设置隐藏');
+    // 根据设置显示/隐藏
+    const container = document.getElementById('squirrel-pet-container');
+    if (container && !showButton) {
+        container.style.display = 'none';
+        console.log('松鼠宠物已根据设置隐藏');
     }
     
     console.log('松鼠收藏夹 initialized!');
