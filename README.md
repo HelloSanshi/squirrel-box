@@ -68,7 +68,7 @@
    - 选择 `dist` 文件夹
 
 #### 方式二：Chrome 应用商店
-- 🚧 即将上线...
+- ✅ [点击安装](https://chromewebstore.google.com/detail/松鼠收藏夹/ekhbcjiejapjaaihlhhebbclkkhiiile)
 
 ### ⚙️ 配置 AI API
 

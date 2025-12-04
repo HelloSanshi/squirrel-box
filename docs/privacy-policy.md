@@ -102,8 +102,9 @@
 
 如果您对本隐私政策有任何疑问，请通过以下方式联系我们：
 
+- **邮箱**：dev@upcv.tech
 - **GitHub Issues**：[https://github.com/HelloSanshi/squirrel-box/issues](https://github.com/HelloSanshi/squirrel-box/issues)
-- **邮箱**：（请在 GitHub 上提交 Issue）
+- **Chrome Web Store**：[松鼠收藏夹](https://chromewebstore.google.com/detail/松鼠收藏夹/ekhbcjiejapjaaihlhhebbclkkhiiile)
 
 ---
 
