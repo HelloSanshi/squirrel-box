@@ -1,64 +1,67 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { SquirrelLook } from './SquirrelLook';
 
 interface PetProps {
   initialPosition?: { x: number; y: number };
-  onCollect?: (target?: Element) => void;
+  onCollect?: (target?: Element) => Promise<void>;
 }
 
-type PetState = 'IDLE' | 'WALK' | 'SLEEP' | 'DRAGGING' | 'EATING' | 'HAPPY';
+// 唯一的松鼠图片
+const SQUIRREL_IMAGE = 'gif/squirrel_eating_consistent_frame_01.png';
+
+// 松鼠尺寸
+const PET_SIZE = 60;
 
 export const Pet: React.FC<PetProps> = ({ initialPosition, onCollect }) => {
-  const [state, setState] = useState<PetState>('IDLE');
+  const [isCollecting, setIsCollecting] = useState(false);
   // 初始位置：右下角
-  const [position, setPosition] = useState(initialPosition || { x: window.innerWidth - 80, y: window.innerHeight - 100 });
+  const [position, setPosition] = useState(initialPosition || { 
+    x: window.innerWidth - PET_SIZE - 20, 
+    y: window.innerHeight - PET_SIZE - 20 
+  });
   const isDragging = useRef(false);
   const dragOffset = useRef({ x: 0, y: 0 });
   const petRef = useRef<HTMLDivElement>(null);
-  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clickStartTime = useRef(0);
 
-  // 自动发呆/睡觉逻辑
+  // 窗口大小变化时，保持松鼠在可视区域内
   useEffect(() => {
-    const resetIdleTimer = () => {
-        if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-        if (state !== 'SLEEP' && state !== 'EATING') {
-            idleTimerRef.current = setTimeout(() => {
-                setState('SLEEP');
-            }, 30000); // 30秒无操作进入睡眠
+    const handleResize = () => {
+      setPosition(prev => {
+        const windowWidth = window.innerWidth;
+        const windowHeight = window.innerHeight;
+        
+        let newX = prev.x;
+        let newY = prev.y;
+        
+        // 如果超出右边界，调整到右边界
+        if (newX > windowWidth - PET_SIZE - 10) {
+          newX = windowWidth - PET_SIZE - 10;
         }
+        // 如果超出下边界，调整到下边界
+        if (newY > windowHeight - PET_SIZE - 10) {
+          newY = windowHeight - PET_SIZE - 10;
+        }
+        
+        return { x: newX, y: newY };
+      });
     };
 
-    resetIdleTimer();
-    window.addEventListener('pointermove', resetIdleTimer);
-    return () => {
-        window.removeEventListener('pointermove', resetIdleTimer);
-        if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-    };
-  }, [state]);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // 拖拽逻辑
   const handlePointerDown = (e: React.PointerEvent) => {
     isDragging.current = true;
+    clickStartTime.current = Date.now();
     dragOffset.current = {
       x: e.clientX - position.x,
       y: e.clientY - position.y
     };
-    setState('DRAGGING');
+    
     // 防止选中文字
     e.preventDefault();
     e.stopPropagation();
-  };
-
-  // 处理点击（区分拖拽和点击）
-  const handleClick = () => {
-    // 如果只是简单的点击（没有发生明显的位移），则触发交互
-    if (state !== 'DRAGGING') {
-        if (state === 'IDLE' || state === 'SLEEP') {
-            setState('HAPPY');
-            setTimeout(() => setState('IDLE'), 2000);
-            if (onCollect) onCollect();
-        }
-    }
   };
 
   useEffect(() => {
@@ -71,35 +74,22 @@ export const Pet: React.FC<PetProps> = ({ initialPosition, onCollect }) => {
       setPosition({ x: newX, y: newY });
     };
 
-    const handlePointerUp = (e: PointerEvent) => {
+    const handlePointerUp = async (e: PointerEvent) => {
       if (!isDragging.current) return;
       isDragging.current = false;
       
-      // 如果是从睡眠中拖动，醒来
-      setState('IDLE');
-
-      // 检测释放位置
-      // 1. 暂时隐藏 Shadow Host 以便检测底下的元素
-      const host = document.getElementById('squirrel-pet-container');
-      if (host) host.style.display = 'none';
+      const clickDuration = Date.now() - clickStartTime.current;
+      const wasClick = clickDuration < 200;
       
-      // 2. 获取释放点坐标下的元素
-      const elementBelow = document.elementFromPoint(e.clientX, e.clientY);
-      
-      // 3. 恢复显示
-      if (host) host.style.display = 'block';
-
-      if (elementBelow) {
-        // 查找最近的推文元素
-        const tweetElement = elementBelow.closest('article[data-testid="tweet"]');
-        if (tweetElement) {
-          // 触发进食动画
-          setState('EATING');
-          setTimeout(() => setState('IDLE'), 3000); // 吃3秒
-          
-          // 触发收藏
-          if (onCollect) onCollect(tweetElement);
+      // 如果是短促的点击（不是拖拽），直接收集当前悬停的推文
+      if (wasClick && onCollect) {
+        setIsCollecting(true);
+        try {
+          await onCollect();
+        } finally {
+          setIsCollecting(false);
         }
+        return;
       }
       
       // 自动吸附边缘逻辑
@@ -108,14 +98,13 @@ export const Pet: React.FC<PetProps> = ({ initialPosition, onCollect }) => {
       const currentX = e.clientX - dragOffset.current.x;
       const currentY = e.clientY - dragOffset.current.y;
       
-      // 简单的边界检查，防止飞出屏幕
       let finalX = currentX;
       let finalY = currentY;
       
       if (finalX < 0) finalX = 10;
-      if (finalX > windowWidth - 60) finalX = windowWidth - 60;
+      if (finalX > windowWidth - PET_SIZE) finalX = windowWidth - PET_SIZE - 10;
       if (finalY < 0) finalY = 10;
-      if (finalY > windowHeight - 60) finalY = windowHeight - 60;
+      if (finalY > windowHeight - PET_SIZE) finalY = windowHeight - PET_SIZE - 10;
       
       setPosition({ x: finalX, y: finalY });
     };
@@ -129,30 +118,49 @@ export const Pet: React.FC<PetProps> = ({ initialPosition, onCollect }) => {
     };
   }, [onCollect]);
 
+  // 获取图片 URL
+  const getImageUrl = () => {
+    try {
+      return chrome.runtime.getURL(SQUIRREL_IMAGE);
+    } catch {
+      return SQUIRREL_IMAGE;
+    }
+  };
+
   const containerStyle: React.CSSProperties = {
     position: 'fixed',
     left: position.x,
     top: position.y,
-    width: '60px',
-    height: '60px',
-    cursor: state === 'DRAGGING' ? 'grabbing' : 'grab',
-    zIndex: 2147483647, // Max Z-Index
+    width: `${PET_SIZE}px`, 
+    height: `${PET_SIZE}px`,
+    cursor: 'pointer',
+    zIndex: 2147483647,
     userSelect: 'none',
     touchAction: 'none',
-    // 使用 transition 实现平滑移动（拖拽时除外）
-    transition: state === 'DRAGGING' ? 'none' : 'left 0.3s ease-out, top 0.3s ease-out, transform 0.2s',
-    transform: state === 'DRAGGING' ? 'scale(1.1)' : 'scale(1)',
-    filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.2))',
+    transition: 'left 0.3s ease-out, top 0.3s ease-out, transform 0.2s',
+    transform: isCollecting ? 'scale(1.1)' : 'scale(1)',
+    filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))',
   };
 
   return (
     <div
       ref={petRef}
       onPointerDown={handlePointerDown}
-      onClick={handleClick}
       style={containerStyle}
     >
-      <SquirrelLook state={state} />
+      <img 
+        src={getImageUrl()} 
+        alt="松鼠"
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'contain',
+          display: 'block',
+          pointerEvents: 'none',
+          opacity: isCollecting ? 0.8 : 1,
+          transition: 'opacity 0.2s',
+        }}
+      />
     </div>
   );
 };

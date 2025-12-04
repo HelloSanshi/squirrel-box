@@ -58,7 +58,7 @@
     ],
     "web_accessible_resources": [
         {
-            "resources": ["icons/*"],
+            "resources": ["icons/*", "gif/*"],
             "matches": [
                 "https://twitter.com/*", 
                 "https://www.twitter.com/*",

@@ -82,12 +82,12 @@ function trackCurrentTweet() {
     });
 }
 
-async function collectCurrentTweet(targetTweet?: Element) {
+async function collectCurrentTweet(targetTweet?: Element): Promise<void> {
     const tweetToCollect = targetTweet || currentTweet;
 
     if (!tweetToCollect) {
         showNotification('请先将鼠标悬停在要收藏的推文上，或将松鼠拖拽到推文上');
-        return;
+        return Promise.resolve();
     }
 
     try {

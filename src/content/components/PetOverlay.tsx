@@ -2,7 +2,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { Pet } from './Pet';
 
-export const mountPetOverlay = (onCollect: (target?: Element) => void) => {
+export const mountPetOverlay = (onCollect: (target?: Element) => Promise<void>) => {
   // 创建容器
   const containerId = 'squirrel-pet-container';
   let container = document.getElementById(containerId);
@@ -32,4 +32,3 @@ export const mountPetOverlay = (onCollect: (target?: Element) => void) => {
     </React.StrictMode>
   );
 };
-
